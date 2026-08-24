@@ -30,6 +30,7 @@ async function main() {
   for (const id of ['stability-utilization', 'stability-bar', 'stability-maximum', 'stability-margin', 'stability-direction', 'stability-motion', 'stability-quality', 'gyro-x', 'gyro-y', 'gyro-z', 'gyro-total', 'gyro-live-state']) assert.match(dashboardHtml, new RegExp(`id=["']${id}["']`));
   assert.match(dashboardJs, /fmt\(gyroValues\[0\], 4\)/);
   assert.match(dashboardJs, /Math\.hypot\(\.\.\.gyroValues\) \* 180 \/ Math\.PI/);
+  assert.match(dashboardJs, /REFERÊNCIA ESTÁVEL: ROLL 0° · PITCH 0°/);
   assert.match(mappingHtml, /Mapeamento híbrido de áreas de risco/);
   assert.match(mappingHtml, /value="25000" selected/);
   assert.match(mappingHtml, /class="risk-area"/);
@@ -69,6 +70,11 @@ async function main() {
   assert.equal(refreshedLocation.body.usedAsDeviceFallback, true);
 
   const { calculateStability } = require('../lib/risk');
+  const centeredStability = calculateStability({ roll: 0, pitch: 0 }, { x: 0, y: 0, z: 9.80665 }, { x: 0, y: 0, z: 0 }, 15);
+  assert.equal(centeredStability.level, 'safe');
+  assert.equal(centeredStability.maximumAngle, 0);
+  assert.equal(centeredStability.angularSpeedDegS, 0);
+  assert.equal(centeredStability.motion, 'steady');
   const warningStability = calculateStability({ roll: 12, pitch: 4 }, { x: 0, y: 2, z: 9.6 }, { x: .01, y: .02, z: .01 }, 15);
   assert.equal(warningStability.level, 'warning');
   assert.equal(Math.round(warningStability.utilizationPercent), 80);

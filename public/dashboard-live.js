@@ -260,6 +260,10 @@
   function stabilityLevelLabel(value) { return { safe: 'Estável', warning: 'Atenção', critical: 'Crítico', unavailable: 'Sem leitura' }[value] || '—'; }
 
   function updateTilt(reading) {
+    const stabilityOverview = document.querySelector('.stability-overview');
+    if (stabilityOverview && !stabilityOverview.querySelector('.stable-reference')) {
+      stabilityOverview.insertAdjacentHTML('afterbegin', '<div class="stable-reference"><i></i>REFERÊNCIA ESTÁVEL: ROLL 0° · PITCH 0°</div>');
+    }
     const demoSeconds = performance.now() / 1000;
     const roll = demoTilt ? Math.sin(demoSeconds * .72) * 17 : reading.tilt?.roll;
     const pitch = demoTilt ? Math.sin(demoSeconds * .51 + 1.2) * 10 : reading.tilt?.pitch;
@@ -281,7 +285,7 @@
     }
     const status = el('tilt-status');
     if (status) {
-      status.textContent = demoTilt ? 'Demonstração visual' : !hasTilt ? 'IMU sem leitura' : stability.level === 'critical' ? 'Inclinação crítica' : stability.level === 'warning' ? 'Atenção à inclinação' : 'Máquina estável';
+      status.textContent = demoTilt ? 'Demonstração visual' : !hasTilt ? 'IMU sem leitura' : stability.level === 'critical' ? 'Inclinação crítica' : stability.level === 'warning' ? 'Atenção à inclinação' : 'Estável · centro 0°/0°';
       status.className = `pill ${stability.level === 'critical' ? 'danger' : stability.level === 'warning' ? 'waiting' : hasTilt ? 'safe' : 'waiting'}`;
     }
     set('stability-utilization', finite(stability.utilizationPercent) ? `${Math.round(stability.utilizationPercent)}%` : '—');
