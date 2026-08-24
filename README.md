@@ -1,16 +1,20 @@
-# AgroGuard — monitor da colheitadeira
+# AgroRisk — monitor da colheitadeira
 
-Dashboard local que lê a telemetria do ESP32 pela porta serial e mostra distância, buzzer, temperatura, umidade, GPS, geofence e inclinação em tempo real.
+Dashboard em nuvem que recebe a telemetria do ESP32 pela porta serial e mostra distância, buzzer, temperatura, umidade, GPS, geofence e inclinação em tempo real.
 
-> A arquitetura atual é local porque precisa acessar a porta USB. Consulte [docs/ARQUITETURA_VERCEL.md](docs/ARQUITETURA_VERCEL.md) antes da implantação em nuvem.
+Produção: **https://agrorisk-ten.vercel.app**
+
+O frontend e as APIs estão na Vercel, os dados ficam no PostgreSQL/Neon e o gateway local conecta a COM3 à nuvem. Consulte [docs/ARQUITETURA_VERCEL.md](docs/ARQUITETURA_VERCEL.md) e [docs/DBEAVER.md](docs/DBEAVER.md).
+
+O servidor local legado está em `local-server.js`. Para a operação em nuvem, execute `npm run gateway` no computador ligado ao ESP32; a Vercel utiliza somente `api/`, `lib/` e `public/`.
 
 ## Executar
 
 1. Feche o Monitor Serial da Arduino IDE.
 2. Abra um terminal nesta pasta.
 3. Execute `npm install` na primeira vez.
-4. Execute `npm start`.
-5. Abra `http://localhost:3000`. O protótipo Sompo Agro Risk é a interface principal.
+4. Para o modo local, execute `npm start` e abra `http://localhost:3000`.
+5. Para transmitir o ESP32 ao site publicado, execute `npm run gateway`.
 
 ## Opções de interface
 

@@ -14,6 +14,8 @@
   let recent = [];
   let lastReading;
   const demoTilt = new URLSearchParams(location.search).get('demo') === '1';
+  const cloudMode = location.hostname !== 'localhost' && location.hostname !== '127.0.0.1';
+  let lastCloudTimestamp;
   let locationWatchId;
 
   function setConnection(status) {
@@ -174,14 +176,34 @@
     recent = history; applyConfig(status.config); setConnection(status.serial); renderHistory(); renderTrend();
     renderDangerZones(dangerZones); renderSafetyLogs(logs);
     if (status.latest) updateReading(status.latest);
-    const events = new EventSource(`/events?t=${Date.now()}`);
-    events.addEventListener('telemetry', ({ data }) => updateReading(JSON.parse(data), false));
-    events.addEventListener('measurement', ({ data }) => updateReading(JSON.parse(data), true));
-    events.addEventListener('serial', ({ data }) => setConnection(JSON.parse(data)));
-    events.addEventListener('config', ({ data }) => applyConfig(JSON.parse(data)));
-    events.addEventListener('danger-zones', ({ data }) => renderDangerZones(JSON.parse(data)));
-    events.addEventListener('safety-log', ({ data }) => { logs.push(JSON.parse(data)); renderSafetyLogs(logs); });
-    events.onerror = () => { const node = el('connection'); if (node) node.innerHTML = '<i></i>Reconectando…'; };
+    if (cloudMode) {
+      lastCloudTimestamp = status.latest?.timestamp;
+      setInterval(async () => {
+        try {
+          const current = await fetch('/api/status', { cache: 'no-store' }).then((response) => response.json());
+          setConnection(current.serial);
+          if (current.latest && current.latest.timestamp !== lastCloudTimestamp) {
+            lastCloudTimestamp = current.latest.timestamp; updateReading(current.latest, true);
+          }
+        } catch { setConnection({ connected: false }); }
+      }, 1500);
+      setInterval(async () => {
+        const [zones, freshLogs] = await Promise.all([
+          fetch('/api/danger-zones', { cache: 'no-store' }).then((response) => response.json()),
+          fetch('/api/safety-logs?limit=30', { cache: 'no-store' }).then((response) => response.json()),
+        ]);
+        renderDangerZones(zones); logs.splice(0, logs.length, ...freshLogs); renderSafetyLogs(logs);
+      }, 10000);
+    } else {
+      const events = new EventSource(`/events?t=${Date.now()}`);
+      events.addEventListener('telemetry', ({ data }) => updateReading(JSON.parse(data), false));
+      events.addEventListener('measurement', ({ data }) => updateReading(JSON.parse(data), true));
+      events.addEventListener('serial', ({ data }) => setConnection(JSON.parse(data)));
+      events.addEventListener('config', ({ data }) => applyConfig(JSON.parse(data)));
+      events.addEventListener('danger-zones', ({ data }) => renderDangerZones(JSON.parse(data)));
+      events.addEventListener('safety-log', ({ data }) => { logs.push(JSON.parse(data)); renderSafetyLogs(logs); });
+      events.onerror = () => { const node = el('connection'); if (node) node.innerHTML = '<i></i>Reconectando…'; };
+    }
     startNotebookLocation();
   }
 
@@ -214,7 +236,7 @@
   el('save-fence')?.addEventListener('click', () => saveFence().catch((error) => set('save-result', error.message)));
   el('refresh-danger')?.addEventListener('click', async () => {
     set('danger-source', 'Atualizando mapa de riscos...');
-    const response = await fetch('/api/danger-zones/refresh', { method: 'POST' });
+    const response = cloudMode ? await fetch('/api/danger-zones', { cache: 'no-store' }) : await fetch('/api/danger-zones/refresh', { method: 'POST' });
     renderDangerZones(await response.json());
   });
   setInterval(() => {

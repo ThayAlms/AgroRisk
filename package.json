@@ -3,12 +3,18 @@
   "version": "1.0.0",
   "private": true,
   "description": "Dashboard em tempo real para os sensores da colheitadeira",
-  "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js"
+    "start": "node local-server.js",
+    "dev": "node --watch local-server.js",
+    "gateway": "powershell -NoProfile -ExecutionPolicy Bypass -File gateway/start-gateway.ps1",
+    "smoke:cloud": "node --env-file-if-exists=.vercel/.env.production.local scripts/smoke-cloud.js",
+    "vercel-dev": "vercel dev"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
     "serialport": "^13.0.0"
+  },
+  "devDependencies": {
+    "vercel": "^59.5.0"
   }
 }

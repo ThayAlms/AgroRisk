@@ -2,7 +2,7 @@
 
 ## Por que o servidor atual não pode simplesmente ser enviado
 
-O `server.js` atual abre a porta COM do ESP32 e mantém uma conexão contínua. A Vercel executa funções na nuvem e não tem acesso ao USB do notebook ou da máquina. O sistema final deve ser dividido em dois processos.
+O `local-server.js` abre a porta COM do ESP32 e mantém uma conexão contínua. A Vercel executa funções na nuvem e não tem acesso ao USB do notebook ou da máquina. O sistema final está dividido em dois processos.
 
 ```text
 ESP32 ──USB/Serial──> Gateway local ──HTTPS──> API na Vercel ──> Banco PostgreSQL
