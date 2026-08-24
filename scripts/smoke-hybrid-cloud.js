@@ -8,8 +8,12 @@ async function jsonRequest(path, options = {}) {
 }
 
 async function main() {
-  const page = await fetch(`${baseUrl}/`, { signal: AbortSignal.timeout(15_000) }).then((response) => response.text());
-  if (!page.includes('Mapeamento híbrido de áreas de risco')) throw new Error('HTML híbrido não está em produção');
+  const [dashboardPage, mappingPage] = await Promise.all([
+    fetch(`${baseUrl}/`, { signal: AbortSignal.timeout(15_000) }).then((response) => response.text()),
+    fetch(`${baseUrl}/mapeamento-riscos.html`, { signal: AbortSignal.timeout(15_000) }).then((response) => response.text()),
+  ]);
+  if (!dashboardPage.includes('Mapeamento de Riscos') || dashboardPage.includes('class="card risk-mapping-card"')) throw new Error('Dashboard principal não foi simplificado');
+  if (!mappingPage.includes('Mapeamento híbrido de áreas de risco')) throw new Error('Aba de mapeamento não está em produção');
   const discovery = await jsonRequest('/api/risk-discovery?latitude=-23.55052&longitude=-46.633308&radius=500');
   const headers = { origin: baseUrl, host: new URL(baseUrl).host, 'sec-fetch-site': 'same-origin', 'content-type': 'application/json' };
   let created;
@@ -21,7 +25,7 @@ async function main() {
   } finally {
     if (created?.id) await jsonRequest(`/api/danger-zones?id=${encodeURIComponent(created.id)}`, { method: 'DELETE', headers });
   }
-  console.log(JSON.stringify({ ok: true, htmlHybrid: true, openStreetMapCandidates: discovery.candidates.length, zoneMutation: true, cleanup: true }));
+  console.log(JSON.stringify({ ok: true, dashboardSimplified: true, mappingTab: true, openStreetMapCandidates: discovery.candidates.length, zoneMutation: true, cleanup: true }));
 }
 
 main().catch((error) => { console.error(error.message); process.exitCode = 1; });

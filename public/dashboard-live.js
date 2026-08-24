@@ -39,7 +39,7 @@
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 20, attribution: '&copy; OpenStreetMap' }).addTo(map);
     dangerLayerGroup = L.layerGroup().addTo(map);
     candidateLayerGroup = L.layerGroup().addTo(map);
-    map.on('click', ({ latlng }) => { if (!drawingActive) { pendingCenter = latlng; renderFence(); } });
+    map.on('click', ({ latlng }) => { if (!drawingActive && el('save-fence')) { pendingCenter = latlng; renderFence(); } });
     if (window.L.Draw) {
       map.on(L.Draw.Event.DRAWSTART, () => { drawingActive = true; });
       map.on(L.Draw.Event.DRAWSTOP, () => { drawingActive = false; });
@@ -358,7 +358,7 @@
         set('location-help', `Localização ativa • precisão aproximada de ${Math.round(position.coords.accuracy)} m.`);
         set('mapping-state', 'LOCALIZAÇÃO ATIVA');
         const button = el('locate-me'); if (button) { button.textContent = 'LOCALIZAÇÃO ATIVA'; button.disabled = true; }
-        if (!locationDiscoveryStarted) {
+        if (!locationDiscoveryStarted && el('zone-review')) {
           locationDiscoveryStarted = true;
           discoverRisks().catch((error) => { set('mapping-state', 'BUSCA INDISPONÍVEL'); set('risk-feedback', error.message); });
         }

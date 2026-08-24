@@ -21,11 +21,16 @@ async function call(handler, request) {
 }
 
 async function main() {
-  const html = readFileSync(join(__dirname, '..', 'public', 'sompo-agro-risk.html'), 'utf8');
-  assert.match(html, /Mapeamento híbrido de áreas de risco/);
-  for (const id of ['locate-me', 'discover-risks', 'draw-risk', 'zone-review', 'risk-feedback']) assert.match(html, new RegExp(`id=["']${id}["']`));
-  const htmlIds = [...html.matchAll(/\sid=["']([^"']+)["']/g)].map((match) => match[1]);
-  assert.equal(new Set(htmlIds).size, htmlIds.length, 'O HTML contém IDs duplicados');
+  const dashboardHtml = readFileSync(join(__dirname, '..', 'public', 'sompo-agro-risk.html'), 'utf8');
+  const mappingHtml = readFileSync(join(__dirname, '..', 'public', 'mapeamento-riscos.html'), 'utf8');
+  assert.doesNotMatch(dashboardHtml, /class="card risk-mapping-card"/);
+  assert.match(dashboardHtml, /href="\/mapeamento-riscos\.html"/);
+  assert.match(mappingHtml, /Mapeamento híbrido de áreas de risco/);
+  for (const id of ['locate-me', 'discover-risks', 'draw-risk', 'zone-review', 'risk-feedback']) assert.match(mappingHtml, new RegExp(`id=["']${id}["']`));
+  for (const html of [dashboardHtml, mappingHtml]) {
+    const htmlIds = [...html.matchAll(/\sid=["']([^"']+)["']/g)].map((match) => match[1]);
+    assert.equal(new Set(htmlIds).size, htmlIds.length, 'O HTML contém IDs duplicados');
+  }
 
   const location = require('../api/location');
   const telemetry = require('../api/telemetry');

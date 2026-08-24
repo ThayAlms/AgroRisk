@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Mapeamento híbrido de áreas de risco do Sompo Agro Risk">
+  <title>Sompo Agro Risk • Mapeamento de Riscos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css">
+  <link rel="stylesheet" href="/mapeamento-riscos.css">
+</head>
+<body>
+  <div class="utility"><div class="utility-inner"><a href="#">Portal do Corretor</a><a href="#">Portal do Segurado</a><a href="#">Atendimento</a></div></div>
+  <header class="header"><nav class="nav"><img class="logo" src="/sompo-logo.png" alt="Sompo"><div class="links"><a href="/sompo-agro-risk.html">Monitoramento</a><a href="/mapeamento-riscos.html" class="active">Mapeamento de Riscos</a><a class="portal" href="/api/export.csv">EXPORTAR RELATÓRIO</a></div></nav></header>
+  <div class="subnav"><div class="subnav-inner"><span>Início / Gestão de Riscos / Mapeamento híbrido</span><span id="connection" class="connection"><i></i>Conectando ao equipamento...</span></div></div>
+  <section class="hero"><div class="hero-inner"><span class="eyebrow">SOMPO AGRO RISK</span><h1>Mapeamento híbrido de áreas de risco</h1><p>Use sua localização, revise dados públicos e desenhe áreas conhecidas pela operação.</p></div></section>
+  <main class="page">
+    <section class="workspace">
+      <article class="card"><div class="card-title"><div><h2>Mapa operacional</h2><p>Operador em azul, equipamento em vermelho e riscos confirmados no mapa</p></div><span id="mapping-state" class="pill waiting">AGUARDANDO LOCALIZAÇÃO</span></div><div class="map-wrap"><div id="map"></div><div id="location-panel" class="location-panel"><strong>LOCALIZAÇÃO DO OPERADOR</strong><small id="location-help">Autorize o navegador para montar o mapa de riscos ao seu redor.</small><button id="locate-me" class="primary">ATIVAR MINHA LOCALIZAÇÃO</button></div><div class="map-tag"><small>CENTRO DA GEOFENCE</small><strong id="fence-center">Clique no mapa para definir</strong></div></div></article>
+      <aside class="card"><div class="card-title"><div><h2>Configuração</h2><p>Defina geofence e fontes de risco</p></div><span class="pill safe">HÍBRIDO</span></div><div class="settings"><div class="step"><strong>1. Autorize sua localização</strong><small>O navegador pedirá permissão e mostrará a precisão aproximada.</small></div><div class="step"><strong>2. Busque ou desenhe riscos</strong><small>Resultados públicos são sugestões; somente confirme após verificar.</small></div><div class="step"><strong>3. Ative as áreas confirmadas</strong><small>Elas passam a gerar alertas, logs e comandos para o buzzer.</small></div><label class="field">RAIO DA ÁREA SEGURADA <span id="radius-value">250 m</span><input id="radius" type="range" min="25" max="2000" step="25" value="250"></label><button id="save-fence" class="primary">SALVAR ÁREA SEGURADA</button><div id="save-result" class="result"></div><div class="field-row"><label class="field">BUSCA AO REDOR<select id="search-radius"><option value="2000">2 km</option><option value="5000" selected>5 km</option><option value="10000">10 km</option></select></label><label class="field">TIPO MANUAL<select id="manual-zone-category"><option value="water">Água</option><option value="quarry">Pedreira</option><option value="cliff">Barranco/escarpa</option><option value="restricted">Área restrita</option><option value="other">Outro risco</option></select></label></div><label class="field">NOME DA ÁREA MANUAL<input id="manual-zone-name" maxlength="100" placeholder="Ex.: Barranco norte"></label><label class="field">DISTÂNCIAS: ALERTA / CRÍTICO<input id="risk-distances" value="150 / 60"></label><div class="actions"><button id="discover-risks" class="primary">MAPEAR RISCOS</button><button id="draw-risk" class="outline">DESENHAR ÁREA</button></div><div id="risk-feedback" class="result">A busca envia a coordenada aproximada ao OpenStreetMap. Dados públicos precisam de confirmação operacional.</div></div></aside>
+    </section>
+    <section class="card review-card"><div class="card-title"><div><h2>Revisão das áreas</h2><p>Confirme, rejeite ou remova zonas das regras operacionais</p></div><span id="danger-count" class="pill waiting">0 áreas confirmadas</span></div><div id="zone-review" class="zone-review"><div class="zone-review-empty">Ative sua localização para buscar riscos ou desenhe uma área conhecida.</div></div></section>
+    <section class="card status-card"><div class="card-title"><div><h2>Estado geográfico e eventos</h2><p>Distância das zonas confirmadas e histórico de alertas</p></div><button id="refresh-danger" class="outline">ATUALIZAR ÁREAS</button></div><div class="danger-summary"><div><small>ESTADO GEOGRÁFICO</small><strong><span id="danger-state" class="pill waiting">Mapeando riscos</span></strong></div><div><small>ZONA MAIS PRÓXIMA</small><strong id="nearest-danger">Nenhuma zona próxima</strong></div><div><small>DISTÂNCIA ATUAL</small><strong id="danger-distance">—</strong></div><div><small>FONTE DOS DADOS</small><strong id="danger-source">Aguardando localização</strong></div></div><div id="safety-log" class="safety-log"><div class="log-empty">Nenhum evento perigoso registrado.</div></div></section>
+  </main>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+  <script src="/dashboard-live.js"></script>
+</body>
+</html>
