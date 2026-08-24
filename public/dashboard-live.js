@@ -87,13 +87,30 @@
     if (!map || !dangerLayerGroup) return;
     dangerLayerGroup.clearLayers();
     for (const zone of state.zones || []) {
+      renderDangerWarningBuffer(zone);
       const color = '#df082a';
       const options = { color, weight: 4, opacity: .9, fillColor: color, fillOpacity: .22 };
       const layer = zone.closed ? L.polygon(zone.coordinates, options) : L.polyline(zone.coordinates, options);
-      layer.bindTooltip(`<strong>${escapeHtml(zone.name)}</strong><br>Confirmada • alerta ${zone.warningMeters} m • crítico ${zone.criticalMeters} m`);
+      const riskRule = zone.criticalMeters === 0
+        ? `perigo na área • faixa de atenção até ${zone.warningMeters} m`
+        : `alerta ${zone.warningMeters} m • crítico ${zone.criticalMeters} m`;
+      layer.bindTooltip(`<strong>${escapeHtml(zone.name)}</strong><br>Confirmada • ${riskRule}`);
       layer.addTo(dangerLayerGroup);
     }
     renderZoneReview();
+  }
+
+  function renderDangerWarningBuffer(zone) {
+    if (!window.turf || !finite(Number(zone.warningMeters)) || Number(zone.warningMeters) <= 0) return;
+    try {
+      const longitudeLatitude = zone.coordinates.map(([latitude, longitude]) => [longitude, latitude]);
+      const feature = zone.closed ? turf.polygon([longitudeLatitude]) : turf.lineString(longitudeLatitude);
+      const buffered = turf.buffer(feature, Number(zone.warningMeters), { units: 'meters', steps: 12 });
+      L.geoJSON(buffered, {
+        interactive: false,
+        style: { color: '#f28c00', weight: 2, opacity: .95, fillColor: '#f6a400', fillOpacity: .3 },
+      }).addTo(dangerLayerGroup);
+    } catch (_) { /* Uma geometria incompleta não deve impedir a renderização do risco principal. */ }
   }
 
   function zoneCategory(category) {
@@ -103,7 +120,7 @@
   function parseRiskDistances() {
     const values = String(el('risk-distances')?.value || '').split(/[/,;|]/).map((value) => Number(value.trim()));
     const warningMeters = values[0]; const criticalMeters = values[1];
-    if (!finite(warningMeters) || !finite(criticalMeters) || warningMeters <= criticalMeters || criticalMeters < 5) throw new Error('Use distâncias no formato 150 / 60');
+    if (!finite(warningMeters) || !finite(criticalMeters) || warningMeters <= criticalMeters || criticalMeters < 0) throw new Error('Use distâncias no formato 10 / 0');
     return { warningMeters, criticalMeters };
   }
 
@@ -146,6 +163,22 @@
     discoveryCandidates = discoveryCandidates.filter((item) => item.id !== zoneId);
     await reloadDangerZones();
     set('risk-feedback', `${zone.name} confirmada e incluída nas regras de alerta.`);
+  }
+
+  async function confirmAutomaticWaterZones(zones) {
+    const savedIds = [];
+    for (let index = 0; index < zones.length; index += 8) {
+      const batch = zones.slice(index, index + 8);
+      const results = await Promise.all(batch.map(async (zone) => {
+        const response = await fetch('/api/danger-zones', {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ zone: { ...zone, warningMeters: 10, criticalMeters: 0, source: 'openstreetmap-confirmed' } }),
+        });
+        return response.ok ? zone.id : null;
+      }));
+      savedIds.push(...results.filter(Boolean));
+    }
+    return savedIds;
   }
 
   async function removeZone(zoneId) {
@@ -201,10 +234,15 @@
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'Não foi possível mapear os riscos');
     const confirmedIds = (latestDangerState?.zones || []).map((zone) => zone.id);
-    discoveryCandidates = result.candidates.filter((zone) => !confirmedIds.some((id) => id.endsWith(zone.id)));
+    const newCandidates = result.candidates.filter((zone) => !confirmedIds.some((id) => id.endsWith(zone.id)));
+    const automaticWaterZones = newCandidates.filter((zone) => zone.automaticDanger);
+    const automaticallySavedIds = await confirmAutomaticWaterZones(automaticWaterZones);
+    if (automaticallySavedIds.length) await reloadDangerZones();
+    discoveryCandidates = newCandidates.filter((zone) => !automaticallySavedIds.includes(zone.id));
     renderZoneReview();
     set('mapping-state', discoveryCandidates.length ? `${discoveryCandidates.length} PARA REVISAR` : 'NENHUMA SUGESTÃO');
-    set('risk-feedback', discoveryCandidates.length ? `${discoveryCandidates.length} sugestões encontradas. Confirme somente as áreas verificadas.` : 'Nenhum risco público foi encontrado nesse raio; você ainda pode desenhar áreas manuais.');
+    const automaticMessage = automaticallySavedIds.length ? `${automaticallySavedIds.length} lagos/áreas de água foram marcados automaticamente como perigosos. ` : '';
+    set('risk-feedback', discoveryCandidates.length ? `${automaticMessage}${discoveryCandidates.length} outros riscos aguardam revisão.` : automaticMessage || 'Nenhum risco público foi encontrado nesse raio; você ainda pode desenhar áreas manuais.');
   }
 
   function renderSafetyLogs(logs) {

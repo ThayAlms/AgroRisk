@@ -34,6 +34,12 @@ async function main() {
   assert.match(mappingHtml, /Mapeamento de riscos da região FIAP/);
   assert.match(mappingHtml, /value="25000" selected/);
   assert.match(mappingHtml, /class="risk-area"/);
+  assert.match(mappingHtml, /class="warning-area"/);
+  assert.match(mappingHtml, /Faixa de atenção até 10 m/);
+  assert.match(mappingHtml, /value="10 \/ 0"/);
+  assert.match(mappingHtml, /@turf\/turf@7/);
+  assert.match(dashboardHtml, /@turf\/turf@7/);
+  assert.match(dashboardJs, /turf\.buffer/);
   assert.match(mappingHtml, /REGIÃO FIAP FIXA/);
   assert.match(mappingHtml, /FIAP Paulista — Av\. Paulista, 1106/);
   assert.match(mappingHtml, /value="powerline"/);
@@ -83,7 +89,7 @@ async function main() {
   const refreshedLocation = await call(location, { method: 'POST', headers: sameOriginHeaders, body: { latitude: -23.55, longitude: -46.63, accuracyMeters: 12 } });
   assert.equal(refreshedLocation.body.usedAsDeviceFallback, true);
 
-  const { calculateStability } = require('../lib/risk');
+  const { calculateStability, enrichTelemetry } = require('../lib/risk');
   const centeredStability = calculateStability({ roll: 0, pitch: 0 }, { x: 0, y: 0, z: 9.80665 }, { x: 0, y: 0, z: 0 }, 15);
   assert.equal(centeredStability.level, 'safe');
   assert.equal(centeredStability.maximumAngle, 0);
@@ -93,6 +99,15 @@ async function main() {
   assert.equal(warningStability.level, 'warning');
   assert.equal(Math.round(warningStability.utilizationPercent), 80);
   assert.equal(warningStability.dominantAxis, 'lateral');
+
+  const lakeZone = {
+    id: 'lake-test', name: 'Lago teste', category: 'water', closed: true, warningMeters: 10, criticalMeters: 0,
+    coordinates: [[-23.55, -46.63], [-23.55, -46.629], [-23.551, -46.629], [-23.551, -46.63], [-23.55, -46.63]],
+  };
+  const riskConfig = { tiltAlertDegrees: 15, distanceAlertCm: 50, geofence: { latitude: -23.55, longitude: -46.63, radiusMeters: 1000 } };
+  const telemetryAt = (latitude, longitude) => ({ acceleration: { x: 0, y: 0, z: 9.80665 }, gyroscope: { x: 0, y: 0, z: 0 }, gps: { latitude, longitude } });
+  assert.equal(enrichTelemetry(telemetryAt(-23.5505, -46.6295), riskConfig, [lakeZone]).danger.level, 'critical');
+  assert.equal(enrichTelemetry(telemetryAt(-23.5505, -46.62895), riskConfig, [lakeZone]).danger.level, 'warning');
 
   const exportCsv = require('../api/export.csv');
   const exported = await call(exportCsv, { method: 'GET' });
@@ -106,9 +121,11 @@ async function main() {
 
   const created = await call(dangerZones, {
     method: 'POST', headers: sameOriginHeaders,
-    body: { zone: { id: 'manual-test', name: 'Lago teste', category: 'water', coordinates: [[-23.55, -46.63], [-23.551, -46.63], [-23.55, -46.63]], closed: true, warningMeters: 150, criticalMeters: 60 } },
+    body: { zone: { id: 'manual-test', name: 'Lago teste', category: 'water', coordinates: [[-23.55, -46.63], [-23.551, -46.63], [-23.55, -46.63]], closed: true, warningMeters: 10, criticalMeters: 0 } },
   });
   assert.equal(created.statusCode, 201);
+  assert.equal(created.body.warningMeters, 10);
+  assert.equal(created.body.criticalMeters, 0);
   const listed = await call(dangerZones, { method: 'GET' });
   assert.equal(listed.body.zones.length, 1);
   const removed = await call(dangerZones, { method: 'DELETE', headers: sameOriginHeaders, query: { id: created.body.id } });
@@ -116,7 +133,7 @@ async function main() {
 
   const originalFetch = global.fetch;
   let overpassBody = '';
-  global.fetch = async (_url, options) => { overpassBody = String(options.body); return { ok: true, json: async () => ({ elements: [{ type: 'way', id: 42, tags: { natural: 'water', name: 'Represa teste' }, geometry: [{ lat: -23.55, lon: -46.63 }, { lat: -23.551, lon: -46.631 }] }] }) }; };
+  global.fetch = async (_url, options) => { overpassBody = String(options.body); return { ok: true, json: async () => ({ elements: [{ type: 'way', id: 42, tags: { natural: 'water', water: 'lake', name: 'Represa teste' }, geometry: [{ lat: -23.55, lon: -46.63 }, { lat: -23.551, lon: -46.63 }, { lat: -23.551, lon: -46.631 }, { lat: -23.55, lon: -46.63 }] }] }) }; };
   const discovered = await call(discovery, { method: 'GET', query: { latitude: '-23.55', longitude: '-46.63', radius: '50000' } });
   global.fetch = originalFetch;
   assert.equal(discovered.statusCode, 200);
@@ -125,6 +142,9 @@ async function main() {
   assert.match(overpassBody, /natural%22%3D%22wetland/);
   assert.match(overpassBody, /man_made%22%3D%22embankment/);
   assert.equal(discovered.body.candidates[0].source, 'openstreetmap-pending');
+  assert.equal(discovered.body.candidates[0].automaticDanger, true);
+  assert.equal(discovered.body.candidates[0].warningMeters, 10);
+  assert.equal(discovered.body.candidates[0].criticalMeters, 0);
   assert.equal(Number.isFinite(discovered.body.candidates[0].distanceMeters), true);
 
   console.log(JSON.stringify({ ok: true, stability: true, csvColumns: 40, htmlHybrid: true, browserGpsFallback: true, locationHeartbeat: true, locationOriginProtected: true, zoneLifecycle: true, riskDiscovery: true }));

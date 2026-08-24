@@ -6,6 +6,9 @@ function normalizeZone(input, device) {
   const validCoordinates = coordinates.length >= 2 && coordinates.every(([lat, lon]) => Number.isFinite(lat) && lat >= -90 && lat <= 90 && Number.isFinite(lon) && lon >= -180 && lon <= 180);
   if (!validCoordinates) return null;
   const category = ['water', 'flood', 'quarry', 'cliff', 'steep_slope', 'bridge', 'road', 'powerline', 'restricted', 'other'].includes(input.category) ? input.category : 'other';
+  const waterRisk = category === 'water' || category === 'flood';
+  const requestedWarning = Number(input.warningMeters);
+  const requestedCritical = Number(input.criticalMeters);
   const safeId = String(input.id || `manual-${Date.now()}`).replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 100);
   return {
     id: `${device}-${safeId}`.slice(0, 180),
@@ -13,8 +16,8 @@ function normalizeZone(input, device) {
     category,
     coordinates,
     closed: input.closed !== false,
-    warningMeters: Math.min(Math.max(Number(input.warningMeters) || 150, 20), 5000),
-    criticalMeters: Math.min(Math.max(Number(input.criticalMeters) || 60, 5), 1000),
+    warningMeters: Math.min(Math.max(Number.isFinite(requestedWarning) ? requestedWarning : waterRisk ? 10 : 150, 1), 5000),
+    criticalMeters: Math.min(Math.max(Number.isFinite(requestedCritical) ? requestedCritical : waterRisk ? 0 : 60, 0), 1000),
     source: input.source === 'openstreetmap-confirmed' ? input.source : 'manual',
   };
 }
