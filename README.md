@@ -38,7 +38,7 @@ $env:SERIAL_PORT = "COM3"
 npm start
 ```
 
-O histórico fica em `data/measurements.ndjson` e pode ser baixado como planilha CSV pelo botão **Exportar CSV**.
+O histórico fica em `data/measurements.ndjson` e pode ser baixado pelo botão **Exportar relatório**. O CSV usa separador `;`, datas no horário de São Paulo e 40 colunas agrupadas por identificação, ambiente, estabilidade/IMU, localização, geofence e riscos geográficos. Valores booleanos são exportados como `SIM`/`NAO` e números usam vírgula decimal para facilitar a abertura no Excel em português.
 
 Eventos de aproximação de rios e pedreiras ficam em `data/safety-logs.ndjson`. As zonas automáticas vêm do OpenStreetMap e são apenas uma camada auxiliar; áreas críticas devem ser conferidas e homologadas antes da operação real.
 

@@ -4,6 +4,7 @@ const path = require('node:path');
 const { URL } = require('node:url');
 const { SerialPort } = require('serialport');
 const { ReadlineParser } = require('@serialport/parser-readline');
+const { calculateStability } = require('./lib/risk');
 
 const WEB_PORT = Number(process.env.PORT || 3000);
 const SERIAL_BAUD = Number(process.env.SERIAL_BAUD || 115200);
@@ -225,6 +226,7 @@ function enrich(reading) {
     reading.gps.source = 'esp32';
   }
   reading.tilt = calculateTilt(reading.acceleration);
+  reading.stability = calculateStability(reading.tilt, reading.acceleration, reading.gyroscope, config.tiltAlertDegrees);
   const fence = config.geofence;
   const hasPosition = Number.isFinite(reading.gps.latitude) && Number.isFinite(reading.gps.longitude);
   const hasFence = Number.isFinite(fence.latitude) && Number.isFinite(fence.longitude);
@@ -240,7 +242,7 @@ function enrich(reading) {
   reading.danger = hasPosition ? dangerForPosition(reading.gps.latitude, reading.gps.longitude) : { level: 'unknown', nearest: null, zonesLoaded: dangerState.zones.length };
   reading.alerts = {
     obstacle: reading.buzzer || (Number.isFinite(reading.distanceCm) && reading.distanceCm <= config.distanceAlertCm),
-    tilt: [reading.tilt.roll, reading.tilt.pitch].some((v) => Number.isFinite(v) && Math.abs(v) >= config.tiltAlertDegrees),
+    tilt: reading.stability.level === 'critical',
     outsideGeofence: reading.geofence.inside === false,
     dangerZone: ['warning', 'critical'].includes(reading.danger.level),
   };
@@ -397,24 +399,45 @@ function readBody(request) {
 }
 
 function csvValue(value) {
-  const text = value === null || value === undefined ? '' : String(value);
+  const normalized = typeof value === 'number' && Number.isFinite(value) ? String(value).replace('.', ',')
+    : typeof value === 'boolean' ? (value ? 'SIM' : 'NAO') : value;
+  const text = normalized === null || normalized === undefined ? '' : String(normalized);
   return `"${text.replaceAll('"', '""')}"`;
 }
 
 function exportCsv(response) {
+  const stabilityCache = new WeakMap();
+  const stability = (reading) => {
+    if (!stabilityCache.has(reading)) stabilityCache.set(reading, reading.stability || calculateStability(reading.tilt, reading.acceleration, reading.gyroscope, config.tiltAlertDegrees));
+    return stabilityCache.get(reading);
+  };
+  const datePart = (timestamp) => timestamp ? new Date(timestamp).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '';
+  const timePart = (timestamp) => timestamp ? new Date(timestamp).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour12: false }) : '';
   const columns = [
-    ['data_hora', (r) => r.timestamp], ['distancia_cm', (r) => r.distanceCm], ['buzzer', (r) => r.buzzer],
-    ['temperatura_c', (r) => r.environment.temperatureC], ['umidade_pct', (r) => r.environment.humidityPercent],
-    ['aceleracao_x', (r) => r.acceleration.x], ['aceleracao_y', (r) => r.acceleration.y], ['aceleracao_z', (r) => r.acceleration.z],
-    ['giroscopio_x', (r) => r.gyroscope.x], ['giroscopio_y', (r) => r.gyroscope.y], ['giroscopio_z', (r) => r.gyroscope.z],
-    ['inclinacao_lateral_graus', (r) => r.tilt.roll], ['inclinacao_frontal_graus', (r) => r.tilt.pitch],
-    ['latitude', (r) => r.gps.latitude], ['longitude', (r) => r.gps.longitude], ['dentro_geofence', (r) => r.geofence.inside],
+    ['data', (r) => datePart(r.timestamp)], ['hora', (r) => timePart(r.timestamp)], ['timestamp_iso', (r) => r.timestamp],
+    ['dispositivo', (r) => r.deviceId || 'colheitadeira-01'], ['transporte', (r) => r.gateway?.transport || 'usb'],
+    ['distancia_frontal_cm', (r) => r.distanceCm], ['alerta_obstaculo', (r) => r.alerts?.obstacle], ['buzzer_ativo', (r) => r.buzzer],
+    ['temperatura_c', (r) => r.environment?.temperatureC], ['umidade_percentual', (r) => r.environment?.humidityPercent],
+    ['estabilidade_nivel', (r) => stability(r).level], ['estabilidade_uso_limite_percentual', (r) => stability(r).utilizationPercent],
+    ['angulo_maximo_graus', (r) => stability(r).maximumAngle], ['margem_ate_limite_graus', (r) => stability(r).marginDegrees],
+    ['limite_inclinacao_graus', (r) => stability(r).limitDegrees], ['eixo_predominante', (r) => stability(r).dominantAxis],
+    ['direcao_inclinacao', (r) => stability(r).direction], ['inclinacao_lateral_roll_graus', (r) => r.tilt?.roll],
+    ['inclinacao_frontal_pitch_graus', (r) => r.tilt?.pitch], ['velocidade_angular_graus_s', (r) => stability(r).angularSpeedDegS],
+    ['estado_movimento', (r) => stability(r).motion], ['qualidade_imu', (r) => stability(r).sensorQuality],
+    ['aceleracao_x_m_s2', (r) => r.acceleration?.x], ['aceleracao_y_m_s2', (r) => r.acceleration?.y], ['aceleracao_z_m_s2', (r) => r.acceleration?.z],
+    ['giroscopio_x_rad_s', (r) => r.gyroscope?.x], ['giroscopio_y_rad_s', (r) => r.gyroscope?.y], ['giroscopio_z_rad_s', (r) => r.gyroscope?.z],
+    ['gps_valido', (r) => r.gps?.valid], ['latitude', (r) => r.gps?.latitude], ['longitude', (r) => r.gps?.longitude],
+    ['fonte_gps', (r) => r.gps?.source], ['precisao_gps_m', (r) => r.gps?.accuracyMeters],
+    ['geofence_configurada', (r) => r.geofence?.configured], ['dentro_geofence', (r) => r.geofence?.inside],
+    ['distancia_centro_geofence_m', (r) => r.geofence?.distanceFromCenter],
+    ['nivel_perigo_geografico', (r) => r.danger?.level], ['zona_risco_proxima', (r) => r.danger?.nearest?.name],
+    ['categoria_zona_risco', (r) => r.danger?.nearest?.category], ['distancia_zona_risco_m', (r) => r.danger?.nearest?.distanceMeters],
   ];
   const rows = [columns.map(([name]) => csvValue(name)).join(';')];
   for (const reading of history) rows.push(columns.map(([, getter]) => csvValue(getter(reading))).join(';'));
   response.writeHead(200, {
     'Content-Type': 'text/csv; charset=utf-8',
-    'Content-Disposition': 'attachment; filename="historico-colheitadeira.csv"',
+    'Content-Disposition': 'attachment; filename="agrorisk-relatorio-operacional.csv"',
   });
   response.end(`\uFEFF${rows.join('\r\n')}`);
 }

@@ -11,6 +11,7 @@ function response() {
     status(code) { this.statusCode = code; return this; },
     setHeader(name, value) { this.headers[name] = value; return this; },
     json(body) { this.body = body; return this; },
+    send(body) { this.body = body; return this; },
   };
 }
 
@@ -25,6 +26,7 @@ async function main() {
   const mappingHtml = readFileSync(join(__dirname, '..', 'public', 'mapeamento-riscos.html'), 'utf8');
   assert.doesNotMatch(dashboardHtml, /class="card risk-mapping-card"/);
   assert.match(dashboardHtml, /href="\/mapeamento-riscos\.html"/);
+  for (const id of ['stability-utilization', 'stability-bar', 'stability-maximum', 'stability-margin', 'stability-direction', 'stability-motion', 'stability-quality']) assert.match(dashboardHtml, new RegExp(`id=["']${id}["']`));
   assert.match(mappingHtml, /Mapeamento híbrido de áreas de risco/);
   assert.match(mappingHtml, /value="25000" selected/);
   assert.match(mappingHtml, /class="risk-area"/);
@@ -50,6 +52,24 @@ async function main() {
   assert.equal(reading.statusCode, 201);
   assert.equal(reading.body.telemetry.gps.source, 'notebook');
   assert.equal(reading.body.telemetry.gps.valid, true);
+  assert.equal(reading.body.telemetry.stability.level, 'safe');
+  assert.equal(reading.body.telemetry.stability.maximumAngle, 0);
+
+  const { calculateStability } = require('../lib/risk');
+  const warningStability = calculateStability({ roll: 12, pitch: 4 }, { x: 0, y: 2, z: 9.6 }, { x: .01, y: .02, z: .01 }, 15);
+  assert.equal(warningStability.level, 'warning');
+  assert.equal(Math.round(warningStability.utilizationPercent), 80);
+  assert.equal(warningStability.dominantAxis, 'lateral');
+
+  const exportCsv = require('../api/export.csv');
+  const exported = await call(exportCsv, { method: 'GET' });
+  assert.equal(exported.statusCode, 200);
+  assert.match(exported.headers['Content-Disposition'], /agrorisk-relatorio-operacional\.csv/);
+  const csvLines = exported.body.split(/\r?\n/);
+  assert.equal(csvLines[0].split(';').length, 40);
+  assert.match(csvLines[0], /"estabilidade_nivel"/);
+  assert.match(csvLines[0], /"qualidade_imu"/);
+  assert.match(csvLines[1], /"seguro"|"safe"/);
 
   const created = await call(dangerZones, {
     method: 'POST', headers: sameOriginHeaders,
@@ -72,7 +92,7 @@ async function main() {
   assert.equal(discovered.body.candidates[0].source, 'openstreetmap-pending');
   assert.equal(Number.isFinite(discovered.body.candidates[0].distanceMeters), true);
 
-  console.log(JSON.stringify({ ok: true, htmlHybrid: true, browserGpsFallback: true, zoneLifecycle: true, riskDiscovery: true }));
+  console.log(JSON.stringify({ ok: true, stability: true, csvColumns: 40, htmlHybrid: true, browserGpsFallback: true, zoneLifecycle: true, riskDiscovery: true }));
 }
 
 main().catch((error) => { console.error(error); process.exitCode = 1; });

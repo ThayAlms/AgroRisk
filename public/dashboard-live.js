@@ -230,19 +230,64 @@
     if (!mappingPage) map.panTo(position, { animate: true, duration: .5 });
   }
 
+  function stabilityFor(reading, roll, pitch) {
+    if (reading.stability) return reading.stability;
+    const valid = finite(roll) && finite(pitch);
+    const limitDegrees = Number(config?.tiltAlertDegrees || 15);
+    const maximumAngle = valid ? Math.max(Math.abs(roll), Math.abs(pitch)) : null;
+    const utilizationPercent = valid ? maximumAngle / limitDegrees * 100 : null;
+    const dominantAxis = !valid ? null : Math.abs(roll) >= Math.abs(pitch) ? 'lateral' : 'longitudinal';
+    const dominantAngle = dominantAxis === 'lateral' ? roll : pitch;
+    const gyro = [reading.gyroscope?.x, reading.gyroscope?.y, reading.gyroscope?.z];
+    const angularSpeedDegS = gyro.every(finite) ? Math.hypot(...gyro) * 180 / Math.PI : null;
+    return {
+      level: !valid ? 'unavailable' : maximumAngle >= limitDegrees ? 'critical' : maximumAngle >= limitDegrees * .7 ? 'warning' : 'safe',
+      maximumAngle, limitDegrees, marginDegrees: valid ? limitDegrees - maximumAngle : null, utilizationPercent, dominantAxis,
+      direction: dominantAxis === 'lateral' ? (dominantAngle >= 0 ? 'lateral_positiva' : 'lateral_negativa') : dominantAxis ? (dominantAngle >= 0 ? 'frontal_positiva' : 'frontal_negativa') : null,
+      angularSpeedDegS, motion: angularSpeedDegS === null ? 'unavailable' : angularSpeedDegS >= 12 ? 'abrupt' : angularSpeedDegS >= 3 ? 'moving' : 'steady',
+      sensorQuality: valid ? 'good' : 'unavailable',
+    };
+  }
+
+  function stabilityDirection(value) {
+    return { lateral_positiva: 'Lateral +', lateral_negativa: 'Lateral −', frontal_positiva: 'Frontal +', frontal_negativa: 'Frontal −' }[value] || '—';
+  }
+
+  function motionLabel(value) { return { steady: 'Estacionário', moving: 'Em movimento', abrupt: 'Movimento brusco', unavailable: 'Sem leitura' }[value] || '—'; }
+  function qualityLabel(value) { return { good: 'Boa', fair: 'Regular', poor: 'Revisar montagem', unavailable: 'Indisponível' }[value] || '—'; }
+  function stabilityLevelLabel(value) { return { safe: 'Estável', warning: 'Atenção', critical: 'Crítico', unavailable: 'Sem leitura' }[value] || '—'; }
+
   function updateTilt(reading) {
     const demoSeconds = performance.now() / 1000;
     const roll = demoTilt ? Math.sin(demoSeconds * .72) * 17 : reading.tilt?.roll;
     const pitch = demoTilt ? Math.sin(demoSeconds * .51 + 1.2) * 10 : reading.tilt?.pitch;
     const hasTilt = finite(roll) && finite(pitch);
+    const stability = stabilityFor(reading, roll, pitch);
     document.documentElement.style.setProperty('--live-roll', `${hasTilt ? Math.max(-30, Math.min(30, roll)) : 0}deg`);
     document.documentElement.style.setProperty('--live-pitch', `${hasTilt ? Math.max(-30, Math.min(30, pitch)) : 0}deg`);
+    document.documentElement.style.setProperty('--pitch-offset', `${hasTilt ? Math.max(-32, Math.min(32, pitch * .8)) : 0}px`);
     set('roll', fmt(roll)); set('pitch', fmt(pitch));
     set('gyro-x', fmt(reading.gyroscope?.x, 2)); set('gyro-y', fmt(reading.gyroscope?.y, 2)); set('gyro-z', fmt(reading.gyroscope?.z, 2));
     const status = el('tilt-status');
     if (status) {
-      status.textContent = demoTilt ? 'Demonstração visual' : !hasTilt ? 'IMU sem leitura' : reading.alerts.tilt ? 'Inclinação crítica' : 'Máquina estável';
-      status.className = `pill ${!demoTilt && reading.alerts.tilt ? 'danger' : hasTilt ? 'safe' : 'waiting'}`;
+      status.textContent = demoTilt ? 'Demonstração visual' : !hasTilt ? 'IMU sem leitura' : stability.level === 'critical' ? 'Inclinação crítica' : stability.level === 'warning' ? 'Atenção à inclinação' : 'Máquina estável';
+      status.className = `pill ${stability.level === 'critical' ? 'danger' : stability.level === 'warning' ? 'waiting' : hasTilt ? 'safe' : 'waiting'}`;
+    }
+    set('stability-utilization', finite(stability.utilizationPercent) ? `${Math.round(stability.utilizationPercent)}%` : '—');
+    set('stability-maximum', finite(stability.maximumAngle) ? `${fmt(stability.maximumAngle)}°` : '—');
+    set('stability-margin', finite(stability.marginDegrees) ? (stability.marginDegrees >= 0 ? `${fmt(stability.marginDegrees)}°` : `Excede ${fmt(Math.abs(stability.marginDegrees))}°`) : '—');
+    set('stability-direction', stabilityDirection(stability.direction));
+    set('stability-motion', `Movimento: ${motionLabel(stability.motion)}${finite(stability.angularSpeedDegS) ? ` · ${fmt(stability.angularSpeedDegS)}°/s` : ''}`);
+    set('stability-quality', `Qualidade IMU: ${qualityLabel(stability.sensorQuality)}`);
+    const stabilityBar = el('stability-bar');
+    if (stabilityBar) {
+      stabilityBar.style.width = `${finite(stability.utilizationPercent) ? Math.min(100, Math.max(0, stability.utilizationPercent)) : 0}%`;
+      stabilityBar.style.background = stability.level === 'critical' ? '#df082a' : stability.level === 'warning' ? '#df8c00' : '#008f67';
+    }
+    const riskCopy = el('tilt-risk-copy');
+    if (riskCopy) {
+      riskCopy.textContent = stability.level === 'critical' ? 'Risco crítico' : stability.level === 'warning' ? 'Atenção' : hasTilt ? 'Estável' : 'Sem leitura';
+      riskCopy.className = `pill ${stability.level === 'critical' ? 'danger' : stability.level === 'warning' ? 'waiting' : hasTilt ? 'safe' : 'waiting'}`;
     }
     document.querySelectorAll('.tilt-machine').forEach((node) => node.classList.toggle('unavailable', !hasTilt));
   }
@@ -285,7 +330,10 @@
   function renderHistory() {
     const body = el('history-body');
     if (!body || !recent.length) return;
-    body.innerHTML = recent.slice(-6).reverse().map((r) => `<tr><td>${new Date(r.timestamp).toLocaleTimeString('pt-BR')}</td><td>${fmt(r.distanceCm)} cm</td><td>${fmt(r.environment.temperatureC)} °C</td><td>${fmt(r.tilt.roll)}° / ${fmt(r.tilt.pitch)}°</td><td>${r.gps.valid ? 'GPS fix' : 'Sem fix'}</td></tr>`).join('');
+    body.innerHTML = recent.slice(-6).reverse().map((r) => {
+      const stability = stabilityFor(r, r.tilt?.roll, r.tilt?.pitch);
+      return `<tr><td>${new Date(r.timestamp).toLocaleTimeString('pt-BR')}</td><td>${fmt(r.distanceCm)} cm</td><td>${fmt(r.environment.temperatureC)} °C</td><td>${stabilityLevelLabel(stability.level)} · ${fmt(stability.maximumAngle)}°</td><td>${r.gps.valid ? 'GPS fix' : 'Sem fix'}</td></tr>`;
+    }).join('');
   }
 
   function renderTrend() {
