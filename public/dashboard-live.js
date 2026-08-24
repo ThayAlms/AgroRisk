@@ -268,8 +268,17 @@
     document.documentElement.style.setProperty('--live-roll', `${hasTilt ? Math.max(-30, Math.min(30, roll)) : 0}deg`);
     document.documentElement.style.setProperty('--live-pitch', `${hasTilt ? Math.max(-30, Math.min(30, pitch)) : 0}deg`);
     document.documentElement.style.setProperty('--pitch-offset', `${hasTilt ? Math.max(-32, Math.min(32, pitch * .8)) : 0}px`);
+    const gyroValues = [reading.gyroscope?.x, reading.gyroscope?.y, reading.gyroscope?.z];
+    const hasGyroscope = gyroValues.every(finite);
+    const angularSpeedDegS = hasGyroscope ? Math.hypot(...gyroValues) * 180 / Math.PI : null;
     set('roll', fmt(roll)); set('pitch', fmt(pitch));
-    set('gyro-x', fmt(reading.gyroscope?.x, 2)); set('gyro-y', fmt(reading.gyroscope?.y, 2)); set('gyro-z', fmt(reading.gyroscope?.z, 2));
+    set('gyro-x', fmt(gyroValues[0], 4)); set('gyro-y', fmt(gyroValues[1], 4)); set('gyro-z', fmt(gyroValues[2], 4));
+    set('gyro-total', finite(angularSpeedDegS) ? `${fmt(angularSpeedDegS, 2)}°/s` : '—');
+    const gyroLiveState = el('gyro-live-state');
+    if (gyroLiveState) {
+      gyroLiveState.innerHTML = `<i></i>${hasGyroscope ? 'ATUALIZADO AGORA' : 'SEM LEITURA'}`;
+      gyroLiveState.className = `gyro-live-state ${hasGyroscope ? 'active' : ''}`;
+    }
     const status = el('tilt-status');
     if (status) {
       status.textContent = demoTilt ? 'Demonstração visual' : !hasTilt ? 'IMU sem leitura' : stability.level === 'critical' ? 'Inclinação crítica' : stability.level === 'warning' ? 'Atenção à inclinação' : 'Máquina estável';

@@ -27,7 +27,9 @@ async function main() {
   const dashboardJs = readFileSync(join(__dirname, '..', 'public', 'dashboard-live.js'), 'utf8');
   assert.doesNotMatch(dashboardHtml, /class="card risk-mapping-card"/);
   assert.match(dashboardHtml, /href="\/mapeamento-riscos\.html"/);
-  for (const id of ['stability-utilization', 'stability-bar', 'stability-maximum', 'stability-margin', 'stability-direction', 'stability-motion', 'stability-quality']) assert.match(dashboardHtml, new RegExp(`id=["']${id}["']`));
+  for (const id of ['stability-utilization', 'stability-bar', 'stability-maximum', 'stability-margin', 'stability-direction', 'stability-motion', 'stability-quality', 'gyro-x', 'gyro-y', 'gyro-z', 'gyro-total', 'gyro-live-state']) assert.match(dashboardHtml, new RegExp(`id=["']${id}["']`));
+  assert.match(dashboardJs, /fmt\(gyroValues\[0\], 4\)/);
+  assert.match(dashboardJs, /Math\.hypot\(\.\.\.gyroValues\) \* 180 \/ Math\.PI/);
   assert.match(mappingHtml, /Mapeamento híbrido de áreas de risco/);
   assert.match(mappingHtml, /value="25000" selected/);
   assert.match(mappingHtml, /class="risk-area"/);
