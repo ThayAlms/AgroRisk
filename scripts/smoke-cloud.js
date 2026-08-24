@@ -1,4 +1,4 @@
-const baseUrl = String(process.argv[2] || process.env.CLOUD_API_URL || 'https://agrorisk-ten.vercel.app').replace(/\/$/, '');
+const baseUrl = String(process.argv[2] || process.env.CLOUD_API_URL || 'https://agrorisk-sompo.vercel.app').replace(/\/$/, '');
 const deviceKey = process.env.AGRORISK_DEVICE_API_KEY || process.env.DEVICE_API_KEY;
 const deviceId = 'colheitadeira-01';
 

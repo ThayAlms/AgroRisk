@@ -1,7 +1,7 @@
 const { SerialPort } = require('serialport');
 const { ReadlineParser } = require('@serialport/parser-readline');
 
-const cloudUrl = String(process.env.CLOUD_API_URL || 'https://agrorisk-ten.vercel.app').replace(/\/$/, '');
+const cloudUrl = String(process.env.CLOUD_API_URL || 'https://agrorisk-sompo.vercel.app').replace(/\/$/, '');
 const deviceId = process.env.DEVICE_ID || 'colheitadeira-01';
 const deviceKey = process.env.AGRORISK_DEVICE_API_KEY || process.env.DEVICE_API_KEY || '';
 const requestedPort = process.env.SERIAL_PORT;

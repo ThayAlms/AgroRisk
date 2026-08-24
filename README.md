@@ -2,7 +2,7 @@
 
 Dashboard em nuvem que recebe a telemetria do ESP32 pela porta serial e mostra distância, buzzer, temperatura, umidade, GPS, geofence e inclinação em tempo real.
 
-Produção: **https://agrorisk-ten.vercel.app**
+Produção: **https://agrorisk-sompo.vercel.app**
 
 O frontend e as APIs estão na Vercel, os dados ficam no PostgreSQL/Neon e o gateway local conecta a COM3 à nuvem. Consulte [docs/ARQUITETURA_VERCEL.md](docs/ARQUITETURA_VERCEL.md) e [docs/DBEAVER.md](docs/DBEAVER.md).
 

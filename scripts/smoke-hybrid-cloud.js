@@ -1,4 +1,4 @@
-const baseUrl = String(process.argv[2] || 'https://agrorisk-ten.vercel.app').replace(/\/$/, '');
+const baseUrl = String(process.argv[2] || 'https://agrorisk-sompo.vercel.app').replace(/\/$/, '');
 
 async function jsonRequest(path, options = {}) {
   const response = await fetch(`${baseUrl}${path}`, { ...options, signal: AbortSignal.timeout(30_000) });
