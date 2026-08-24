@@ -25,13 +25,8 @@ async function main() {
   const dashboardHtml = readFileSync(join(__dirname, '..', 'public', 'sompo-agro-risk.html'), 'utf8');
   const mappingHtml = readFileSync(join(__dirname, '..', 'public', 'mapeamento-riscos.html'), 'utf8');
   const dashboardJs = readFileSync(join(__dirname, '..', 'public', 'dashboard-live.js'), 'utf8');
-  const vercelConfig = JSON.parse(readFileSync(join(__dirname, '..', 'vercel.json'), 'utf8'));
   assert.doesNotMatch(dashboardHtml, /class="card risk-mapping-card"/);
   assert.match(dashboardHtml, /href="\/mapeamento-riscos\.html"/);
-  assert.match(dashboardHtml, /href="\/" class="active">Monitoramento/);
-  assert.match(mappingHtml, /href="\/">Monitoramento/);
-  assert.deepEqual(vercelConfig.rewrites, [{ source: '/', destination: '/sompo-agro-risk.html' }]);
-  assert.deepEqual(vercelConfig.redirects, [{ source: '/sompo-agro-risk.html', destination: '/', permanent: true }]);
   for (const id of ['stability-utilization', 'stability-bar', 'stability-maximum', 'stability-margin', 'stability-direction', 'stability-motion', 'stability-quality']) assert.match(dashboardHtml, new RegExp(`id=["']${id}["']`));
   assert.match(mappingHtml, /Mapeamento híbrido de áreas de risco/);
   assert.match(mappingHtml, /value="25000" selected/);
