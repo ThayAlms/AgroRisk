@@ -10,7 +10,7 @@ module.exports = async (request, response) => {
     const location = { latitude, longitude, accuracyMeters: Number(request.body?.accuracyMeters) || null, source: 'notebook', timestamp: request.body?.timestamp || new Date().toISOString() };
     await saveLocation(id, location);
     const previous = await getLatestTelemetry(id);
-    if (previous && previous.gps?.source !== 'esp32') {
+    if (previous && (!previous.gps?.valid || previous.gps?.source !== 'esp32')) {
       const [config, zones] = await Promise.all([getConfig(id), listDangerZones(id)]);
       const updated = enrichTelemetry({ ...previous, timestamp: new Date().toISOString(), gps: { ...location, valid: true } }, config, zones);
       await saveTelemetry(id, updated);

@@ -37,7 +37,7 @@ Arquivos como `data/measurements.ndjson` são adequados somente para uso local. 
 
 - `DATABASE_URL`: conexão protegida do PostgreSQL.
 - `DEVICE_API_KEY`: segredo usado pelo gateway para publicar dados.
-- `OVERPASS_ENABLED`: somente após autorização para enviar coordenadas ao OpenStreetMap.
+- A consulta ao OpenStreetMap é iniciada somente após o usuário autorizar a localização e informa na interface que a coordenada será enviada ao serviço.
 
 ## Variáveis do gateway local
 

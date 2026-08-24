@@ -1,5 +1,5 @@
 const {
-  getConfig, listDangerZones, getLatestTelemetry, saveTelemetry, addSafetyLog, setCommand,
+  getConfig, listDangerZones, getLatestTelemetry, saveTelemetry, addSafetyLog, setCommand, getLocation,
 } = require('../lib/db');
 const { enrichTelemetry } = require('../lib/risk');
 const { json, method, deviceId, authorizedDevice } = require('../lib/http');
@@ -10,8 +10,13 @@ module.exports = async (request, response) => {
   try {
     const id = deviceId(request); const payload = request.body?.telemetry || request.body;
     if (!payload || typeof payload !== 'object') return json(response, 400, { error: 'Telemetria inválida' });
-    const [config, zones, previous] = await Promise.all([getConfig(id), listDangerZones(id), getLatestTelemetry(id)]);
-    const reading = enrichTelemetry({ ...payload, deviceId: id }, config, zones);
+    const [config, zones, previous, browserLocation] = await Promise.all([getConfig(id), listDangerZones(id), getLatestTelemetry(id), getLocation(id)]);
+    const browserLocationAge = browserLocation?.timestamp ? Date.now() - new Date(browserLocation.timestamp).getTime() : Infinity;
+    const incomingGpsValid = Number.isFinite(payload.gps?.latitude) && Number.isFinite(payload.gps?.longitude);
+    const gps = !incomingGpsValid && browserLocation && browserLocationAge < 30_000
+      ? { ...browserLocation, valid: true, source: 'notebook' }
+      : payload.gps;
+    const reading = enrichTelemetry({ ...payload, gps, deviceId: id }, config, zones);
     const previousLevel = previous?.danger?.level || 'unknown'; const nextLevel = reading.danger.level;
     let log = null;
     if (nextLevel !== previousLevel) {

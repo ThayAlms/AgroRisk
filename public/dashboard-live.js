@@ -3,11 +3,14 @@
   const set = (id, value) => { if (el(id)) el(id).textContent = value; };
   const finite = Number.isFinite;
   const fmt = (value, digits = 1) => finite(value) ? Number(value).toFixed(digits) : '—';
+  const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
   let config;
   let map;
   let marker;
   let fence;
   let dangerLayerGroup;
+  let candidateLayerGroup;
+  let operatorMarker;
   let latestDangerState;
   let pendingCenter;
   let lastReceivedAt;
@@ -17,6 +20,10 @@
   const cloudMode = location.hostname !== 'localhost' && location.hostname !== '127.0.0.1';
   let lastCloudTimestamp;
   let locationWatchId;
+  let browserLocation;
+  let discoveryCandidates = [];
+  let drawingActive = false;
+  let locationDiscoveryStarted = false;
 
   function setConnection(status) {
     const node = el('connection');
@@ -31,25 +38,141 @@
     map = L.map('map', { zoomControl: true }).setView([finite(lat) ? lat : -14.2, finite(lon) ? lon : -51.9], finite(lat) ? 17 : 4);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 20, attribution: '&copy; OpenStreetMap' }).addTo(map);
     dangerLayerGroup = L.layerGroup().addTo(map);
-    map.on('click', ({ latlng }) => { pendingCenter = latlng; renderFence(); });
+    candidateLayerGroup = L.layerGroup().addTo(map);
+    map.on('click', ({ latlng }) => { if (!drawingActive) { pendingCenter = latlng; renderFence(); } });
+    if (window.L.Draw) {
+      map.on(L.Draw.Event.DRAWSTART, () => { drawingActive = true; });
+      map.on(L.Draw.Event.DRAWSTOP, () => { drawingActive = false; });
+      map.on(L.Draw.Event.CREATED, ({ layer }) => addManualCandidate(layer));
+    }
     renderFence();
     if (latestDangerState) renderDangerZones(latestDangerState);
   }
 
   function renderDangerZones(state) {
     latestDangerState = state;
-    set('danger-count', `${state.zones?.length || 0} zonas mapeadas`);
+    set('danger-count', `${state.zones?.length || 0} áreas confirmadas`);
     if (state.error) set('danger-source', `Falha no mapa de riscos: ${state.error}`);
-    else set('danger-source', state.loadedAt ? 'OpenStreetMap • atualizado' : 'Aguardando localização');
+    else set('danger-source', state.zones?.length ? 'Áreas validadas pelo operador' : 'Nenhuma área confirmada');
     if (!map || !dangerLayerGroup) return;
     dangerLayerGroup.clearLayers();
     for (const zone of state.zones || []) {
-      const color = zone.category === 'quarry' ? '#df082a' : '#0b5fff';
+      const color = zone.category === 'quarry' || zone.category === 'cliff' ? '#df082a' : zone.category === 'water' ? '#0b5fff' : '#df8c00';
       const options = { color, weight: zone.category === 'quarry' ? 3 : 4, opacity: .85, fillColor: color, fillOpacity: .18, dashArray: zone.category === 'quarry' ? '7 5' : null };
       const layer = zone.closed ? L.polygon(zone.coordinates, options) : L.polyline(zone.coordinates, options);
-      layer.bindTooltip(`<strong>${zone.name}</strong><br>${zone.category === 'quarry' ? 'Pedreira' : 'Área com água'}`);
+      layer.bindTooltip(`<strong>${escapeHtml(zone.name)}</strong><br>Confirmada • alerta ${zone.warningMeters} m • crítico ${zone.criticalMeters} m`);
       layer.addTo(dangerLayerGroup);
     }
+    renderZoneReview();
+  }
+
+  function zoneCategory(category) {
+    return { water: 'Água', quarry: 'Pedreira', cliff: 'Barranco/escarpa', restricted: 'Área restrita', other: 'Outro risco' }[category] || 'Risco';
+  }
+
+  function parseRiskDistances() {
+    const values = String(el('risk-distances')?.value || '').split(/[/,;|]/).map((value) => Number(value.trim()));
+    const warningMeters = values[0]; const criticalMeters = values[1];
+    if (!finite(warningMeters) || !finite(criticalMeters) || warningMeters <= criticalMeters || criticalMeters < 5) throw new Error('Use distâncias no formato 150 / 60');
+    return { warningMeters, criticalMeters };
+  }
+
+  function renderCandidateLayers() {
+    if (!candidateLayerGroup) return;
+    candidateLayerGroup.clearLayers();
+    for (const zone of discoveryCandidates) {
+      const layer = zone.closed ? L.polygon(zone.coordinates, { color: '#df8c00', weight: 3, dashArray: '6 5', fillOpacity: .08 }) : L.polyline(zone.coordinates, { color: '#df8c00', weight: 4, dashArray: '6 5' });
+      layer.bindTooltip(`<strong>${escapeHtml(zone.name)}</strong><br>Sugestão pendente de confirmação`);
+      layer.addTo(candidateLayerGroup);
+    }
+  }
+
+  function renderZoneReview() {
+    const container = el('zone-review');
+    if (!container) return;
+    const confirmed = latestDangerState?.zones || [];
+    const cards = [
+      ...discoveryCandidates.map((zone) => `<article class="zone-candidate ${zone.source === 'manual' ? 'manual' : ''}" data-candidate="${escapeHtml(zone.id)}"><strong>${escapeHtml(zone.name)}</strong><small>${zoneCategory(zone.category)} • ${zone.source === 'manual' ? 'desenhada pelo operador' : 'sugestão do OpenStreetMap'} • ${zone.warningMeters}/${zone.criticalMeters} m</small><div class="zone-actions"><button class="primary" data-confirm-zone="${escapeHtml(zone.id)}">CONFIRMAR</button><button class="outline red" data-reject-zone="${escapeHtml(zone.id)}">REJEITAR</button></div></article>`),
+      ...confirmed.slice(0, 12).map((zone) => `<article class="zone-candidate confirmed"><strong>${escapeHtml(zone.name)}</strong><small>${zoneCategory(zone.category)} • confirmada • ${zone.warningMeters}/${zone.criticalMeters} m</small><div class="zone-actions"><span class="pill safe">ATIVA</span><button class="outline red" data-remove-zone="${escapeHtml(zone.id)}">REMOVER</button></div></article>`),
+    ];
+    container.innerHTML = cards.length ? cards.join('') : '<div class="zone-review-empty">Nenhuma sugestão pendente. Mapeie riscos próximos ou desenhe uma área conhecida.</div>';
+    renderCandidateLayers();
+  }
+
+  async function reloadDangerZones() {
+    const state = await fetch('/api/danger-zones', { cache: 'no-store' }).then((response) => response.json());
+    renderDangerZones(state);
+  }
+
+  async function confirmZone(zoneId) {
+    const zone = discoveryCandidates.find((item) => item.id === zoneId);
+    if (!zone) return;
+    set('risk-feedback', `Confirmando ${zone.name}...`);
+    const payload = { ...zone, source: zone.source === 'manual' ? 'manual' : 'openstreetmap-confirmed' };
+    const response = await fetch('/api/danger-zones', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ zone: payload }) });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Falha ao confirmar área');
+    discoveryCandidates = discoveryCandidates.filter((item) => item.id !== zoneId);
+    await reloadDangerZones();
+    set('risk-feedback', `${zone.name} confirmada e incluída nas regras de alerta.`);
+  }
+
+  async function removeZone(zoneId) {
+    const response = await fetch(`/api/danger-zones?id=${encodeURIComponent(zoneId)}`, { method: 'DELETE' });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Falha ao remover área');
+    await reloadDangerZones();
+    set('risk-feedback', 'Área removida das regras de alerta.');
+  }
+
+  function rejectZone(zoneId) {
+    discoveryCandidates = discoveryCandidates.filter((item) => item.id !== zoneId);
+    renderZoneReview();
+    set('risk-feedback', 'Sugestão rejeitada; nenhuma informação foi gravada.');
+  }
+
+  function addManualCandidate(layer) {
+    const coordinates = layer.getLatLngs()?.[0]?.map(({ lat, lng }) => [lat, lng]) || [];
+    if (coordinates.length < 3) return;
+    coordinates.push([...coordinates[0]]);
+    try {
+      const distances = parseRiskDistances();
+      discoveryCandidates.unshift({
+        id: `manual-${Date.now()}`,
+        name: el('manual-zone-name')?.value.trim() || 'Área de risco manual',
+        category: el('manual-zone-category')?.value || 'other',
+        coordinates, closed: true, source: 'manual', ...distances,
+      });
+      renderZoneReview();
+      set('risk-feedback', 'Área desenhada. Revise e clique em confirmar para ativá-la.');
+    } catch (error) { set('risk-feedback', error.message); }
+  }
+
+  function startDrawing() {
+    if (!map || !window.L?.Draw) return set('risk-feedback', 'O mapa ainda está carregando.');
+    try { parseRiskDistances(); } catch (error) { return set('risk-feedback', error.message); }
+    set('risk-feedback', 'Clique nos limites da área de risco e depois clique no primeiro ponto para concluir.');
+    new L.Draw.Polygon(map, { shapeOptions: { color: '#df8c00', weight: 3, fillOpacity: .12 }, allowIntersection: false, showArea: true }).enable();
+  }
+
+  async function discoverRisks() {
+    if (!browserLocation) {
+      startNotebookLocation();
+      set('risk-feedback', 'Aguardando autorização e localização do navegador...');
+      return;
+    }
+    set('mapping-state', 'BUSCANDO RISCOS');
+    set('risk-feedback', 'Consultando rios, áreas de água, pedreiras e escarpas próximas...');
+    const radius = Number(el('search-radius')?.value || 5000);
+    const params = new URLSearchParams({ latitude: browserLocation.latitude, longitude: browserLocation.longitude, radius });
+    const response = await fetch(`/api/risk-discovery?${params}`, { cache: 'no-store' });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Não foi possível mapear os riscos');
+    const confirmedIds = (latestDangerState?.zones || []).map((zone) => zone.id);
+    discoveryCandidates = result.candidates.filter((zone) => !confirmedIds.some((id) => id.endsWith(zone.id)));
+    renderZoneReview();
+    set('mapping-state', discoveryCandidates.length ? `${discoveryCandidates.length} PARA REVISAR` : 'NENHUMA SUGESTÃO');
+    set('risk-feedback', discoveryCandidates.length ? `${discoveryCandidates.length} sugestões encontradas. Confirme somente as áreas verificadas.` : 'Nenhum risco público foi encontrado nesse raio; você ainda pode desenhar áreas manuais.');
   }
 
   function renderSafetyLogs(logs) {
@@ -204,7 +327,7 @@
       events.addEventListener('safety-log', ({ data }) => { logs.push(JSON.parse(data)); renderSafetyLogs(logs); });
       events.onerror = () => { const node = el('connection'); if (node) node.innerHTML = '<i></i>Reconectando…'; };
     }
-    startNotebookLocation();
+    prepareLocationPermission();
   }
 
   function startNotebookLocation() {
@@ -213,6 +336,7 @@
       return;
     }
     set('gps-state', 'Autorize a localização');
+    set('location-help', 'O navegador solicitará permissão para acompanhar sua posição.');
     locationWatchId = navigator.geolocation.watchPosition(async (position) => {
       const payload = {
         latitude: position.coords.latitude,
@@ -220,24 +344,68 @@
         accuracyMeters: position.coords.accuracy,
         timestamp: new Date(position.timestamp).toISOString(),
       };
+      browserLocation = payload;
+      initializeMap(payload.latitude, payload.longitude);
+      if (map) {
+        const point = [payload.latitude, payload.longitude];
+        if (!operatorMarker) operatorMarker = L.circleMarker(point, { radius: 7, color: '#fff', weight: 3, fillColor: '#0b5fff', fillOpacity: 1 }).bindTooltip('Sua localização').addTo(map);
+        else operatorMarker.setLatLng(point);
+        map.setView(point, Math.max(map.getZoom(), 15));
+      }
       try {
         await fetch('/api/location', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         set('gps-state', `Notebook • precisão ${Math.round(position.coords.accuracy)} m`);
+        set('location-help', `Localização ativa • precisão aproximada de ${Math.round(position.coords.accuracy)} m.`);
+        set('mapping-state', 'LOCALIZAÇÃO ATIVA');
+        const button = el('locate-me'); if (button) { button.textContent = 'LOCALIZAÇÃO ATIVA'; button.disabled = true; }
+        if (!locationDiscoveryStarted) {
+          locationDiscoveryStarted = true;
+          discoverRisks().catch((error) => { set('mapping-state', 'BUSCA INDISPONÍVEL'); set('risk-feedback', error.message); });
+        }
       } catch {
         set('gps-state', 'Falha ao enviar localização');
       }
     }, (error) => {
       const messages = { 1: 'Permissão de localização negada', 2: 'Localização indisponível', 3: 'Tempo de localização esgotado' };
       set('gps-state', messages[error.code] || 'Erro de localização');
+      set('location-help', messages[error.code] || 'Não foi possível obter sua localização.');
+      set('mapping-state', 'LOCALIZAÇÃO INDISPONÍVEL');
+      locationWatchId = undefined;
     }, { enableHighAccuracy: true, maximumAge: 3000, timeout: 15000 });
+  }
+
+  async function prepareLocationPermission() {
+    if (!navigator.geolocation) {
+      set('location-help', 'Este navegador não disponibiliza geolocalização.');
+      set('mapping-state', 'SEM GEOLOCALIZAÇÃO');
+      return;
+    }
+    try {
+      const permission = await navigator.permissions?.query({ name: 'geolocation' });
+      if (permission?.state === 'granted') startNotebookLocation();
+      else if (permission?.state === 'denied') {
+        set('location-help', 'Permissão bloqueada. Libere a localização nas configurações do navegador.');
+        set('mapping-state', 'PERMISSÃO BLOQUEADA');
+      }
+    } catch { /* Alguns navegadores não implementam a consulta de permissão. */ }
   }
 
   el('radius')?.addEventListener('input', () => { set('radius-value', `${el('radius').value} m`); renderFence(); });
   el('save-fence')?.addEventListener('click', () => saveFence().catch((error) => set('save-result', error.message)));
+  el('locate-me')?.addEventListener('click', startNotebookLocation);
+  el('discover-risks')?.addEventListener('click', () => discoverRisks().catch((error) => { set('mapping-state', 'BUSCA INDISPONÍVEL'); set('risk-feedback', error.message); }));
+  el('draw-risk')?.addEventListener('click', startDrawing);
+  el('zone-review')?.addEventListener('click', ({ target }) => {
+    const confirmId = target.closest('[data-confirm-zone]')?.dataset.confirmZone;
+    const rejectId = target.closest('[data-reject-zone]')?.dataset.rejectZone;
+    const removeId = target.closest('[data-remove-zone]')?.dataset.removeZone;
+    if (confirmId) confirmZone(confirmId).catch((error) => set('risk-feedback', error.message));
+    else if (rejectId) rejectZone(rejectId);
+    else if (removeId && window.confirm('Remover esta área das regras de alerta?')) removeZone(removeId).catch((error) => set('risk-feedback', error.message));
+  });
   el('refresh-danger')?.addEventListener('click', async () => {
-    set('danger-source', 'Atualizando mapa de riscos...');
-    const response = cloudMode ? await fetch('/api/danger-zones', { cache: 'no-store' }) : await fetch('/api/danger-zones/refresh', { method: 'POST' });
-    renderDangerZones(await response.json());
+    set('danger-source', 'Atualizando áreas confirmadas...');
+    await reloadDangerZones();
   });
   setInterval(() => {
     if (!lastReceivedAt) return;

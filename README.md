@@ -6,6 +6,10 @@ Produção: **https://agrorisk-ten.vercel.app**
 
 O frontend e as APIs estão na Vercel, os dados ficam no PostgreSQL/Neon e o gateway local conecta a COM3 à nuvem. Consulte [docs/ARQUITETURA_VERCEL.md](docs/ARQUITETURA_VERCEL.md) e [docs/DBEAVER.md](docs/DBEAVER.md).
 
+## Geofence híbrida
+
+O HTML Sompo é a interface principal. Após o operador autorizar a localização, o sistema usa o navegador como fallback enquanto o GPS do ESP32 estiver sem fix, consulta rios, áreas de água, pedreiras e escarpas próximas no OpenStreetMap e apresenta tudo como sugestão. Somente áreas confirmadas ou desenhadas e confirmadas pelo operador são persistidas e passam a participar dos alertas.
+
 O servidor local legado está em `local-server.js`. Para a operação em nuvem, execute `npm run gateway` no computador ligado ao ESP32; a Vercel utiliza somente `api/`, `lib/` e `public/`.
 
 ## Executar
