@@ -12,6 +12,8 @@ O firmware usa Wi-Fi como transporte preferencial e mantém a serial USB como co
 
 O HTML Sompo é a interface principal. Após o operador autorizar a localização, o sistema usa o navegador como fallback enquanto o GPS do ESP32 estiver sem fix, consulta rios, áreas de água, pedreiras e escarpas próximas no OpenStreetMap e apresenta tudo como sugestão. Somente áreas confirmadas ou desenhadas e confirmadas pelo operador são persistidas e passam a participar dos alertas.
 
+Em computadores Windows, a localização depende de duas permissões: **Configurações do Windows → Privacidade e segurança → Localização** e a permissão de localização do site no navegador. A página publicada deve ser aberta por HTTPS. Depois da autorização, o navegador renova a posição a cada 12 segundos para que um computador parado continue disponível como fallback. Quando o GPS físico do ESP32 está válido, ele representa a máquina; a posição do computador representa o operador e não substitui o GPS físico.
+
 O servidor local legado está em `local-server.js`. Para a operação em nuvem, execute `npm run gateway` no computador ligado ao ESP32; a Vercel utiliza somente `api/`, `lib/` e `public/`.
 
 ## Executar

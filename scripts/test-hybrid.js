@@ -24,12 +24,17 @@ async function call(handler, request) {
 async function main() {
   const dashboardHtml = readFileSync(join(__dirname, '..', 'public', 'sompo-agro-risk.html'), 'utf8');
   const mappingHtml = readFileSync(join(__dirname, '..', 'public', 'mapeamento-riscos.html'), 'utf8');
+  const dashboardJs = readFileSync(join(__dirname, '..', 'public', 'dashboard-live.js'), 'utf8');
   assert.doesNotMatch(dashboardHtml, /class="card risk-mapping-card"/);
   assert.match(dashboardHtml, /href="\/mapeamento-riscos\.html"/);
   for (const id of ['stability-utilization', 'stability-bar', 'stability-maximum', 'stability-margin', 'stability-direction', 'stability-motion', 'stability-quality']) assert.match(dashboardHtml, new RegExp(`id=["']${id}["']`));
   assert.match(mappingHtml, /Mapeamento híbrido de áreas de risco/);
   assert.match(mappingHtml, /value="25000" selected/);
   assert.match(mappingHtml, /class="risk-area"/);
+  assert.match(mappingHtml, /LOCALIZAÇÃO DESTE COMPUTADOR/);
+  assert.match(dashboardJs, /locationHeartbeatId/);
+  assert.match(dashboardJs, /12000/);
+  assert.match(dashboardJs, /window\.isSecureContext/);
   for (const id of ['locate-me', 'discover-risks', 'draw-risk', 'zone-review', 'risk-feedback']) assert.match(mappingHtml, new RegExp(`id=["']${id}["']`));
   for (const html of [dashboardHtml, mappingHtml]) {
     const htmlIds = [...html.matchAll(/\sid=["']([^"']+)["']/g)].map((match) => match[1]);
@@ -42,8 +47,11 @@ async function main() {
   const discovery = require('../api/risk-discovery');
   const sameOriginHeaders = { origin: 'https://agrorisk.test', host: 'agrorisk.test', 'sec-fetch-site': 'same-origin' };
 
-  const located = await call(location, { method: 'POST', body: { latitude: -23.55, longitude: -46.63, accuracyMeters: 12 } });
+  const blockedLocation = await call(location, { method: 'POST', body: { latitude: -23.55, longitude: -46.63 } });
+  assert.equal(blockedLocation.statusCode, 403);
+  const located = await call(location, { method: 'POST', headers: sameOriginHeaders, body: { latitude: -23.55, longitude: -46.63, accuracyMeters: 12 } });
   assert.equal(located.statusCode, 200);
+  assert.equal(located.body.deviceGpsActive, false);
 
   const reading = await call(telemetry, {
     method: 'POST', headers: { 'x-device-key': 'test-device-key' },
@@ -54,6 +62,9 @@ async function main() {
   assert.equal(reading.body.telemetry.gps.valid, true);
   assert.equal(reading.body.telemetry.stability.level, 'safe');
   assert.equal(reading.body.telemetry.stability.maximumAngle, 0);
+
+  const refreshedLocation = await call(location, { method: 'POST', headers: sameOriginHeaders, body: { latitude: -23.55, longitude: -46.63, accuracyMeters: 12 } });
+  assert.equal(refreshedLocation.body.usedAsDeviceFallback, true);
 
   const { calculateStability } = require('../lib/risk');
   const warningStability = calculateStability({ roll: 12, pitch: 4 }, { x: 0, y: 2, z: 9.6 }, { x: .01, y: .02, z: .01 }, 15);
@@ -92,7 +103,7 @@ async function main() {
   assert.equal(discovered.body.candidates[0].source, 'openstreetmap-pending');
   assert.equal(Number.isFinite(discovered.body.candidates[0].distanceMeters), true);
 
-  console.log(JSON.stringify({ ok: true, stability: true, csvColumns: 40, htmlHybrid: true, browserGpsFallback: true, zoneLifecycle: true, riskDiscovery: true }));
+  console.log(JSON.stringify({ ok: true, stability: true, csvColumns: 40, htmlHybrid: true, browserGpsFallback: true, locationHeartbeat: true, locationOriginProtected: true, zoneLifecycle: true, riskDiscovery: true }));
 }
 
 main().catch((error) => { console.error(error); process.exitCode = 1; });

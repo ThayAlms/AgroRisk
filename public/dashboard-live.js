@@ -20,6 +20,8 @@
   const cloudMode = location.hostname !== 'localhost' && location.hostname !== '127.0.0.1';
   let lastCloudTimestamp;
   let locationWatchId;
+  let locationHeartbeatId;
+  let locationRequestInFlight = false;
   let browserLocation;
   let discoveryCandidates = [];
   let drawingActive = false;
@@ -407,14 +409,41 @@
     prepareLocationPermission();
   }
 
+  async function publishNotebookLocation(positionPayload) {
+    if (locationRequestInFlight) return null;
+    locationRequestInFlight = true;
+    const payload = { ...positionPayload, timestamp: new Date().toISOString() };
+    try {
+      const response = await fetch('/api/location', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || `Falha HTTP ${response.status}`);
+      browserLocation = payload;
+      const accuracy = finite(payload.accuracyMeters) ? Math.round(payload.accuracyMeters) : null;
+      set('gps-state', result.deviceGpsActive ? 'GPS físico do ESP32 ativo' : `Computador${accuracy ? ` • precisão ${accuracy} m` : ''}`);
+      set('location-help', result.deviceGpsActive
+        ? `Localização deste computador ativa${accuracy ? ` • precisão aproximada de ${accuracy} m` : ''}. A máquina continua usando o GPS físico do ESP32.`
+        : `Localização deste computador ativa${accuracy ? ` • precisão aproximada de ${accuracy} m` : ''} e disponível como fallback da máquina.`);
+      set('mapping-state', mappingPage ? 'REGIÃO DE 25 KM ATIVA' : 'LOCALIZAÇÃO ATIVA');
+      if (!locationHeartbeatId) locationHeartbeatId = setInterval(() => { if (browserLocation) publishNotebookLocation(browserLocation).catch(() => {}); }, 12000);
+      return result;
+    } finally { locationRequestInFlight = false; }
+  }
+
   function startNotebookLocation() {
     if (!navigator.geolocation || locationWatchId !== undefined) {
       if (!navigator.geolocation) set('gps-state', 'Localização indisponível');
       return;
     }
+    if (!window.isSecureContext && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+      set('gps-state', 'HTTPS necessário para localização');
+      set('location-help', 'Abra o AgroRisk pelo endereço HTTPS publicado na Vercel. O navegador bloqueia localização em páginas HTTP.');
+      set('mapping-state', 'CONEXÃO NÃO SEGURA');
+      return;
+    }
     set('gps-state', 'Autorize a localização');
-    set('location-help', 'O navegador solicitará permissão para acompanhar sua posição.');
-    locationWatchId = navigator.geolocation.watchPosition(async (position) => {
+    set('location-help', 'O navegador solicitará permissão. No Windows, o serviço de localização também precisa estar ativado.');
+    const button = el('locate-me'); if (button) { button.textContent = 'LOCALIZANDO...'; button.disabled = true; }
+    locationWatchId = navigator.geolocation.watchPosition((position) => {
       const payload = {
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
@@ -430,26 +459,26 @@
         if (mappingPage) lockMapToOperatorRegion(payload.latitude, payload.longitude);
         else map.setView(point, Math.max(map.getZoom(), 15));
       }
-      try {
-        await fetch('/api/location', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-        set('gps-state', `Notebook • precisão ${Math.round(position.coords.accuracy)} m`);
-        set('location-help', `Localização ativa • precisão aproximada de ${Math.round(position.coords.accuracy)} m • região fixada em 25 km.`);
-        set('mapping-state', mappingPage ? 'REGIÃO DE 25 KM ATIVA' : 'LOCALIZAÇÃO ATIVA');
-        const button = el('locate-me'); if (button) { button.textContent = 'LOCALIZAÇÃO ATIVA'; button.disabled = true; }
+      publishNotebookLocation(payload).then(() => {
+        const activeButton = el('locate-me'); if (activeButton) { activeButton.textContent = 'LOCALIZAÇÃO ATIVA'; activeButton.disabled = true; }
         if (!locationDiscoveryStarted && el('zone-review')) {
           locationDiscoveryStarted = true;
           discoverRisks().catch((error) => { set('mapping-state', 'BUSCA INDISPONÍVEL'); set('risk-feedback', error.message); });
         }
-      } catch {
-        set('gps-state', 'Falha ao enviar localização');
-      }
+      }).catch((error) => { set('gps-state', 'Falha ao enviar localização'); set('location-help', error.message); });
     }, (error) => {
-      const messages = { 1: 'Permissão de localização negada', 2: 'Localização indisponível', 3: 'Tempo de localização esgotado' };
+      const messages = {
+        1: 'Permissão negada. Clique no cadeado da barra de endereço, permita Localização e recarregue a página.',
+        2: 'O computador não encontrou uma posição. Ative Localização do Windows e o Wi-Fi, mesmo que use internet por cabo.',
+        3: 'Tempo esgotado. Ative a Localização do Windows, aproxime-se de uma rede Wi-Fi e tente novamente.',
+      };
       set('gps-state', messages[error.code] || 'Erro de localização');
       set('location-help', messages[error.code] || 'Não foi possível obter sua localização.');
       set('mapping-state', 'LOCALIZAÇÃO INDISPONÍVEL');
       locationWatchId = undefined;
-    }, { enableHighAccuracy: true, maximumAge: 3000, timeout: 15000 });
+      if (locationHeartbeatId) { clearInterval(locationHeartbeatId); locationHeartbeatId = undefined; }
+      const retryButton = el('locate-me'); if (retryButton) { retryButton.textContent = 'TENTAR NOVAMENTE'; retryButton.disabled = false; }
+    }, { enableHighAccuracy: false, maximumAge: 60000, timeout: 30000 });
   }
 
   async function prepareLocationPermission() {
@@ -463,8 +492,16 @@
       if (permission?.state === 'denied') {
         set('location-help', 'Permissão bloqueada. Libere a localização nas configurações do navegador.');
         set('mapping-state', 'PERMISSÃO BLOQUEADA');
+      } else if (permission?.state === 'prompt' && el('locate-me')) {
+        set('location-help', 'Clique em “Ativar minha localização” e escolha Permitir quando o navegador perguntar.');
+        set('mapping-state', 'CLIQUE PARA ATIVAR');
       } else startNotebookLocation();
-    } catch { startNotebookLocation(); }
+    } catch {
+      if (el('locate-me')) {
+        set('location-help', 'Clique em “Ativar minha localização” para solicitar a permissão do navegador.');
+        set('mapping-state', 'CLIQUE PARA ATIVAR');
+      } else startNotebookLocation();
+    }
   }
 
   el('radius')?.addEventListener('input', () => { set('radius-value', `${el('radius').value} m`); renderFence(); });
