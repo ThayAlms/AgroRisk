@@ -5,6 +5,8 @@ const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
 function categoryOf(tags = {}) {
   if (tags.landuse === 'quarry') return 'quarry';
   if (tags.natural === 'cliff') return 'cliff';
+  if (tags.natural === 'wetland' || tags.hazard === 'flood' || tags.flood_prone === 'yes') return 'flood';
+  if (tags.man_made === 'embankment') return 'steep_slope';
   return 'water';
 }
 
@@ -13,6 +15,8 @@ function nameOf(element, category) {
   if (given) return given;
   if (category === 'quarry') return 'Pedreira mapeada';
   if (category === 'cliff') return 'Escarpa mapeada';
+  if (category === 'flood') return 'Área alagável mapeada';
+  if (category === 'steep_slope') return 'Talude ou aterro mapeado';
   return 'Curso ou área de água';
 }
 
@@ -40,7 +44,7 @@ module.exports = async (request, response) => {
     if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90 || !Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
       return json(response, 400, { error: 'Localização válida necessária para mapear riscos' });
     }
-    const query = `[out:json][timeout:25];(way(around:${radius},${latitude},${longitude})["natural"="water"];way(around:${radius},${latitude},${longitude})["waterway"~"^(river|stream|canal|drain)$"];way(around:${radius},${latitude},${longitude})["landuse"="quarry"];way(around:${radius},${latitude},${longitude})["natural"="cliff"];);out tags geom;`;
+    const query = `[out:json][timeout:25];(way(around:${radius},${latitude},${longitude})["natural"="water"];way(around:${radius},${latitude},${longitude})["waterway"~"^(river|stream|canal|drain)$"];way(around:${radius},${latitude},${longitude})["natural"="wetland"];way(around:${radius},${latitude},${longitude})["hazard"="flood"];way(around:${radius},${latitude},${longitude})["flood_prone"="yes"];way(around:${radius},${latitude},${longitude})["landuse"="quarry"];way(around:${radius},${latitude},${longitude})["natural"="cliff"];way(around:${radius},${latitude},${longitude})["man_made"="embankment"];);out tags geom;`;
     const overpass = await fetch(OVERPASS_URL, {
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded', 'user-agent': 'AgroRisk/1.0 risk-mapping' },

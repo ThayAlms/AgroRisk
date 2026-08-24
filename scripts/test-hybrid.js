@@ -31,10 +31,14 @@ async function main() {
   assert.match(dashboardJs, /fmt\(gyroValues\[0\], 4\)/);
   assert.match(dashboardJs, /Math\.hypot\(\.\.\.gyroValues\) \* 180 \/ Math\.PI/);
   assert.match(dashboardJs, /REFERÊNCIA ESTÁVEL: ROLL 0° · PITCH 0°/);
-  assert.match(mappingHtml, /Mapeamento híbrido de áreas de risco/);
+  assert.match(mappingHtml, /Mapeamento de riscos da região FIAP/);
   assert.match(mappingHtml, /value="25000" selected/);
   assert.match(mappingHtml, /class="risk-area"/);
-  assert.match(mappingHtml, /LOCALIZAÇÃO DESTE COMPUTADOR/);
+  assert.match(mappingHtml, /REGIÃO FIAP FIXA/);
+  assert.match(mappingHtml, /FIAP Paulista — Av\. Paulista, 1106/);
+  assert.match(mappingHtml, /value="powerline"/);
+  assert.match(dashboardJs, /FIAP_REGION = Object\.freeze/);
+  assert.match(dashboardJs, /lockMapToFiapRegion/);
   assert.match(dashboardJs, /locationHeartbeatId/);
   assert.match(dashboardJs, /12000/);
   assert.match(dashboardJs, /window\.isSecureContext/);
@@ -45,10 +49,20 @@ async function main() {
   }
 
   const location = require('../api/location');
+  const configApi = require('../api/config');
   const telemetry = require('../api/telemetry');
   const dangerZones = require('../api/danger-zones');
   const discovery = require('../api/risk-discovery');
   const sameOriginHeaders = { origin: 'https://agrorisk.test', host: 'agrorisk.test', 'sec-fetch-site': 'same-origin' };
+
+  const defaultConfig = await call(configApi, { method: 'GET' });
+  assert.equal(defaultConfig.body.geofence.latitude, -23.56318);
+  assert.equal(defaultConfig.body.geofence.longitude, -46.65409);
+  assert.equal(defaultConfig.body.geofence.radiusMeters, 400);
+  const blockedConfig = await call(configApi, { method: 'PUT', body: defaultConfig.body });
+  assert.equal(blockedConfig.statusCode, 401);
+  const savedFiapConfig = await call(configApi, { method: 'PUT', headers: sameOriginHeaders, body: defaultConfig.body });
+  assert.equal(savedFiapConfig.statusCode, 200);
 
   const blockedLocation = await call(location, { method: 'POST', body: { latitude: -23.55, longitude: -46.63 } });
   assert.equal(blockedLocation.statusCode, 403);
@@ -108,6 +122,8 @@ async function main() {
   assert.equal(discovered.statusCode, 200);
   assert.equal(discovered.body.radius, 25000);
   assert.match(overpassBody, /around%3A25000/);
+  assert.match(overpassBody, /natural%22%3D%22wetland/);
+  assert.match(overpassBody, /man_made%22%3D%22embankment/);
   assert.equal(discovered.body.candidates[0].source, 'openstreetmap-pending');
   assert.equal(Number.isFinite(discovered.body.candidates[0].distanceMeters), true);
 

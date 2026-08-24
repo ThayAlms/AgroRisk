@@ -5,7 +5,7 @@ function normalizeZone(input, device) {
   const coordinates = Array.isArray(input?.coordinates) ? input.coordinates.slice(0, 500).map((point) => [Number(point?.[0]), Number(point?.[1])]) : [];
   const validCoordinates = coordinates.length >= 2 && coordinates.every(([lat, lon]) => Number.isFinite(lat) && lat >= -90 && lat <= 90 && Number.isFinite(lon) && lon >= -180 && lon <= 180);
   if (!validCoordinates) return null;
-  const category = ['water', 'quarry', 'cliff', 'restricted', 'other'].includes(input.category) ? input.category : 'other';
+  const category = ['water', 'flood', 'quarry', 'cliff', 'steep_slope', 'bridge', 'road', 'powerline', 'restricted', 'other'].includes(input.category) ? input.category : 'other';
   const safeId = String(input.id || `manual-${Date.now()}`).replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 100);
   return {
     id: `${device}-${safeId}`.slice(0, 180),

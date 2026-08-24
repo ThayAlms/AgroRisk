@@ -25,9 +25,8 @@
   let browserLocation;
   let discoveryCandidates = [];
   let drawingActive = false;
-  let locationDiscoveryStarted = false;
   const mappingPage = Boolean(el('zone-review'));
-  const OPERATOR_REGION_RADIUS_METERS = 25000;
+  const FIAP_REGION = Object.freeze({ latitude: -23.56318, longitude: -46.65409, radiusMeters: 25000, label: 'FIAP Paulista' });
   let operatorRegion;
   let operatorRegionCenter;
 
@@ -47,25 +46,28 @@
 
   function initializeMap(lat, lon) {
     if (map || !window.L || !el('map')) return;
-    map = L.map('map', { zoomControl: true }).setView([finite(lat) ? lat : -14.2, finite(lon) ? lon : -51.9], finite(lat) ? 17 : 4);
+    const initialLatitude = mappingPage ? FIAP_REGION.latitude : finite(lat) ? lat : -14.2;
+    const initialLongitude = mappingPage ? FIAP_REGION.longitude : finite(lon) ? lon : -51.9;
+    map = L.map('map', { zoomControl: true }).setView([initialLatitude, initialLongitude], mappingPage || finite(lat) ? 17 : 4);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 20, attribution: '&copy; OpenStreetMap' }).addTo(map);
     dangerLayerGroup = L.layerGroup().addTo(map);
     candidateLayerGroup = L.layerGroup().addTo(map);
-    map.on('click', ({ latlng }) => { if (!drawingActive && el('save-fence')) { pendingCenter = latlng; renderFence(); } });
+    map.on('click', ({ latlng }) => { if (!mappingPage && !drawingActive && el('save-fence')) { pendingCenter = latlng; renderFence(); } });
     if (window.L.Draw) {
       map.on(L.Draw.Event.DRAWSTART, () => { drawingActive = true; });
       map.on(L.Draw.Event.DRAWSTOP, () => { drawingActive = false; });
       map.on(L.Draw.Event.CREATED, ({ layer }) => addManualCandidate(layer));
     }
+    if (mappingPage) lockMapToFiapRegion();
     renderFence();
     if (latestDangerState) renderDangerZones(latestDangerState);
   }
 
-  function lockMapToOperatorRegion(latitude, longitude) {
+  function lockMapToFiapRegion() {
     if (!mappingPage || !map || operatorRegionCenter) return;
-    operatorRegionCenter = L.latLng(latitude, longitude);
+    operatorRegionCenter = L.latLng(FIAP_REGION.latitude, FIAP_REGION.longitude);
     operatorRegion = L.circle(operatorRegionCenter, {
-      radius: OPERATOR_REGION_RADIUS_METERS,
+      radius: FIAP_REGION.radiusMeters,
       color: '#0b5fff', weight: 2, opacity: .7,
       fillColor: '#0b5fff', fillOpacity: .035, dashArray: '8 7', interactive: false,
     }).addTo(map);
@@ -74,9 +76,7 @@
     map.options.maxBoundsViscosity = 1;
     map.fitBounds(bounds, { padding: [18, 18], animate: false });
     map.setMinZoom(map.getZoom());
-    pendingCenter = operatorRegionCenter;
-    renderFence();
-    set('region-radius', '25 km ao redor da sua localização');
+    set('region-radius', `25 km ao redor da ${FIAP_REGION.label}`);
   }
 
   function renderDangerZones(state) {
@@ -97,7 +97,7 @@
   }
 
   function zoneCategory(category) {
-    return { water: 'Água', quarry: 'Pedreira', cliff: 'Barranco/escarpa', restricted: 'Área restrita', other: 'Outro risco' }[category] || 'Risco';
+    return { water: 'Rio/água', flood: 'Área alagável', quarry: 'Pedreira', cliff: 'Barranco/escarpa', steep_slope: 'Talude/declive', bridge: 'Ponte/travessia', road: 'Via de tráfego', powerline: 'Rede elétrica', restricted: 'Área restrita', other: 'Outro risco' }[category] || 'Risco';
   }
 
   function parseRiskDistances() {
@@ -187,15 +187,16 @@
   }
 
   async function discoverRisks() {
-    if (!browserLocation) {
+    if (!mappingPage && !browserLocation) {
       startNotebookLocation();
       set('risk-feedback', 'Aguardando autorização e localização do navegador...');
       return;
     }
     set('mapping-state', 'BUSCANDO RISCOS');
     set('risk-feedback', 'Consultando rios, áreas de água, pedreiras e escarpas próximas...');
-    const radius = Number(el('search-radius')?.value || OPERATOR_REGION_RADIUS_METERS);
-    const params = new URLSearchParams({ latitude: browserLocation.latitude, longitude: browserLocation.longitude, radius });
+    const center = mappingPage ? FIAP_REGION : browserLocation;
+    const radius = Number(el('search-radius')?.value || FIAP_REGION.radiusMeters);
+    const params = new URLSearchParams({ latitude: center.latitude, longitude: center.longitude, radius });
     const response = await fetch(`/api/risk-discovery?${params}`, { cache: 'no-store' });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'Não foi possível mapear os riscos');
@@ -371,7 +372,7 @@
   }
 
   async function saveFence() {
-    const center = pendingCenter || { lat: config.geofence.latitude, lng: config.geofence.longitude };
+    const center = mappingPage ? { lat: FIAP_REGION.latitude, lng: FIAP_REGION.longitude } : pendingCenter || { lat: config.geofence.latitude, lng: config.geofence.longitude };
     const response = await fetch('/api/config', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
       ...config, geofence: { latitude: center.lat ?? null, longitude: center.lng ?? null, radiusMeters: Number(el('radius').value) },
     }) });
@@ -436,7 +437,7 @@
       set('location-help', result.deviceGpsActive
         ? `Localização deste computador ativa${accuracy ? ` • precisão aproximada de ${accuracy} m` : ''}. A máquina continua usando o GPS físico do ESP32.`
         : `Localização deste computador ativa${accuracy ? ` • precisão aproximada de ${accuracy} m` : ''} e disponível como fallback da máquina.`);
-      set('mapping-state', mappingPage ? 'REGIÃO DE 25 KM ATIVA' : 'LOCALIZAÇÃO ATIVA');
+      set('mapping-state', mappingPage ? 'REGIÃO FIAP FIXA' : 'LOCALIZAÇÃO ATIVA');
       if (!locationHeartbeatId) locationHeartbeatId = setInterval(() => { if (browserLocation) publishNotebookLocation(browserLocation).catch(() => {}); }, 12000);
       return result;
     } finally { locationRequestInFlight = false; }
@@ -450,7 +451,7 @@
     if (!window.isSecureContext && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
       set('gps-state', 'HTTPS necessário para localização');
       set('location-help', 'Abra o AgroRisk pelo endereço HTTPS publicado na Vercel. O navegador bloqueia localização em páginas HTTP.');
-      set('mapping-state', 'CONEXÃO NÃO SEGURA');
+      if (!mappingPage) set('mapping-state', 'CONEXÃO NÃO SEGURA');
       return;
     }
     set('gps-state', 'Autorize a localização');
@@ -469,15 +470,11 @@
         const point = [payload.latitude, payload.longitude];
         if (!operatorMarker) operatorMarker = L.circleMarker(point, { radius: 7, color: '#fff', weight: 3, fillColor: '#0b5fff', fillOpacity: 1 }).bindTooltip('Sua localização').addTo(map);
         else operatorMarker.setLatLng(point);
-        if (mappingPage) lockMapToOperatorRegion(payload.latitude, payload.longitude);
+        if (mappingPage) lockMapToFiapRegion();
         else map.setView(point, Math.max(map.getZoom(), 15));
       }
       publishNotebookLocation(payload).then(() => {
         const activeButton = el('locate-me'); if (activeButton) { activeButton.textContent = 'LOCALIZAÇÃO ATIVA'; activeButton.disabled = true; }
-        if (!locationDiscoveryStarted && el('zone-review')) {
-          locationDiscoveryStarted = true;
-          discoverRisks().catch((error) => { set('mapping-state', 'BUSCA INDISPONÍVEL'); set('risk-feedback', error.message); });
-        }
       }).catch((error) => { set('gps-state', 'Falha ao enviar localização'); set('location-help', error.message); });
     }, (error) => {
       const messages = {
@@ -487,7 +484,7 @@
       };
       set('gps-state', messages[error.code] || 'Erro de localização');
       set('location-help', messages[error.code] || 'Não foi possível obter sua localização.');
-      set('mapping-state', 'LOCALIZAÇÃO INDISPONÍVEL');
+      if (!mappingPage) set('mapping-state', 'LOCALIZAÇÃO INDISPONÍVEL');
       locationWatchId = undefined;
       if (locationHeartbeatId) { clearInterval(locationHeartbeatId); locationHeartbeatId = undefined; }
       const retryButton = el('locate-me'); if (retryButton) { retryButton.textContent = 'TENTAR NOVAMENTE'; retryButton.disabled = false; }
@@ -497,22 +494,22 @@
   async function prepareLocationPermission() {
     if (!navigator.geolocation) {
       set('location-help', 'Este navegador não disponibiliza geolocalização.');
-      set('mapping-state', 'SEM GEOLOCALIZAÇÃO');
+      if (!mappingPage) set('mapping-state', 'SEM GEOLOCALIZAÇÃO');
       return;
     }
     try {
       const permission = await navigator.permissions?.query({ name: 'geolocation' });
       if (permission?.state === 'denied') {
         set('location-help', 'Permissão bloqueada. Libere a localização nas configurações do navegador.');
-        set('mapping-state', 'PERMISSÃO BLOQUEADA');
+        if (!mappingPage) set('mapping-state', 'PERMISSÃO BLOQUEADA');
       } else if (permission?.state === 'prompt' && el('locate-me')) {
         set('location-help', 'Clique em “Ativar minha localização” e escolha Permitir quando o navegador perguntar.');
-        set('mapping-state', 'CLIQUE PARA ATIVAR');
+        if (!mappingPage) set('mapping-state', 'CLIQUE PARA ATIVAR');
       } else startNotebookLocation();
     } catch {
       if (el('locate-me')) {
         set('location-help', 'Clique em “Ativar minha localização” para solicitar a permissão do navegador.');
-        set('mapping-state', 'CLIQUE PARA ATIVAR');
+        if (!mappingPage) set('mapping-state', 'CLIQUE PARA ATIVAR');
       } else startNotebookLocation();
     }
   }

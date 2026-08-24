@@ -1,11 +1,12 @@
 const { getConfig, saveConfig } = require('../lib/db');
-const { json, method, deviceId } = require('../lib/http');
+const { json, method, deviceId, authorizedZoneEditor } = require('../lib/http');
 
 module.exports = async (request, response) => {
   if (!method(request, response, ['GET', 'PUT'])) return;
   const id = deviceId(request);
   try {
     if (request.method === 'GET') return json(response, 200, await getConfig(id));
+    if (!authorizedZoneEditor(request)) return json(response, 401, { error: 'Edição do geofence não autorizada' });
     const current = await getConfig(id); const body = request.body || {};
     const next = {
       geofence: {
