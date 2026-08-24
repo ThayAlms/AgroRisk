@@ -17,9 +17,20 @@ const byte PIN_ECHO = 18;
 const byte PIN_BUZZER = 19;
 
 // Use divisor resistivo/conversor de nível no ECHO do HC-SR04 (5 V -> 3,3 V).
-const float DISTANCIA_LIGAR_BUZZER_CM = 50.0f;
-const float DISTANCIA_DESLIGAR_BUZZER_CM = 60.0f;
+const float DISTANCIA_LIGAR_BUZZER_CM = 30.0f;
+const float DISTANCIA_DESLIGAR_BUZZER_CM = 40.0f;
 const unsigned long TIMEOUT_ULTRASSONICO_US = 25000;
+const byte QUANTIDADE_AMOSTRAS_DISTANCIA = 5;
+const byte LEITURAS_PARA_LIGAR_ALERTA = 3;
+const byte LEITURAS_PARA_DESLIGAR_ALERTA = 4;
+const byte LIMITE_LEITURAS_SEM_ECO = 10;
+
+const unsigned long PERIODO_BIPE_OBSTACULO_MS = 800;
+const unsigned long DURACAO_BIPE_OBSTACULO_MS = 180;
+const unsigned long PERIODO_BIPE_CRITICO_MS = 300;
+const unsigned long DURACAO_BIPE_CRITICO_MS = 220;
+const unsigned long PERIODO_BIPE_GEOFENCE_MS = 1200;
+const unsigned long DURACAO_BIPE_GEOFENCE_MS = 200;
 
 const byte PIN_IMU_SDA = 21;
 const byte PIN_IMU_SCL = 22;
@@ -69,7 +80,14 @@ unsigned long bytesGpsRecebidos = 0;
 bool alertaObstaculo = false;
 bool alertaGeofence = false;
 bool buzzerLigado = false;
+bool saidaBuzzerAtiva = false;
 float distanciaAtualCm = -1.0f;
+float amostrasDistancia[QUANTIDADE_AMOSTRAS_DISTANCIA];
+byte indiceAmostraDistancia = 0;
+byte amostrasDistanciaValidas = 0;
+byte leiturasPerigosasConsecutivas = 0;
+byte leiturasSegurasConsecutivas = 0;
+byte leiturasSemEcoConsecutivas = 0;
 
 float aceleracaoX = NAN;
 float aceleracaoY = NAN;
@@ -351,23 +369,80 @@ float medirDistanciaCm() {
   return duracao * 0.0343f / 2.0f;
 }
 
+float filtrarDistancia(float novaAmostra) {
+  amostrasDistancia[indiceAmostraDistancia] = novaAmostra;
+  indiceAmostraDistancia = (indiceAmostraDistancia + 1) % QUANTIDADE_AMOSTRAS_DISTANCIA;
+  if (amostrasDistanciaValidas < QUANTIDADE_AMOSTRAS_DISTANCIA) amostrasDistanciaValidas++;
+
+  float ordenadas[QUANTIDADE_AMOSTRAS_DISTANCIA];
+  for (byte i = 0; i < amostrasDistanciaValidas; i++) ordenadas[i] = amostrasDistancia[i];
+  for (byte i = 1; i < amostrasDistanciaValidas; i++) {
+    float valor = ordenadas[i];
+    int j = i - 1;
+    while (j >= 0 && ordenadas[j] > valor) {
+      ordenadas[j + 1] = ordenadas[j];
+      j--;
+    }
+    ordenadas[j + 1] = valor;
+  }
+
+  return ordenadas[amostrasDistanciaValidas / 2];
+}
+
 void aplicarEstadoBuzzer() {
-  bool novoEstado = alertaObstaculo || alertaGeofence;
-  if (novoEstado == buzzerLigado) return;
-  buzzerLigado = novoEstado;
-  digitalWrite(PIN_BUZZER, buzzerLigado ? HIGH : LOW);
+  buzzerLigado = alertaObstaculo || alertaGeofence;
+}
+
+void atualizarSaidaBuzzer() {
+  aplicarEstadoBuzzer();
+
+  bool novaSaida = false;
+  if (buzzerLigado) {
+    unsigned long periodo = PERIODO_BIPE_GEOFENCE_MS;
+    unsigned long duracao = DURACAO_BIPE_GEOFENCE_MS;
+
+    if (alertaObstaculo) {
+      bool distanciaCritica = distanciaAtualCm > 0 && distanciaAtualCm <= 15.0f;
+      periodo = distanciaCritica ? PERIODO_BIPE_CRITICO_MS : PERIODO_BIPE_OBSTACULO_MS;
+      duracao = distanciaCritica ? DURACAO_BIPE_CRITICO_MS : DURACAO_BIPE_OBSTACULO_MS;
+    }
+    novaSaida = (millis() % periodo) < duracao;
+  }
+
+  if (novaSaida == saidaBuzzerAtiva) return;
+  saidaBuzzerAtiva = novaSaida;
+  digitalWrite(PIN_BUZZER, saidaBuzzerAtiva ? HIGH : LOW);
 }
 
 void atualizarUltrassonicoEBuzzer() {
   if (millis() - ultimaMedicaoDistancia < INTERVALO_ULTRASSONICO_MS) return;
   ultimaMedicaoDistancia = millis();
-  distanciaAtualCm = medirDistanciaCm();
+  float distanciaMedida = medirDistanciaCm();
 
-  if (distanciaAtualCm > 0) {
-    if (!alertaObstaculo && distanciaAtualCm <= DISTANCIA_LIGAR_BUZZER_CM) alertaObstaculo = true;
-    else if (alertaObstaculo && distanciaAtualCm >= DISTANCIA_DESLIGAR_BUZZER_CM) alertaObstaculo = false;
+  if (distanciaMedida >= 2.0f && distanciaMedida <= 400.0f) {
+    leiturasSemEcoConsecutivas = 0;
+    distanciaAtualCm = filtrarDistancia(distanciaMedida);
+
+    if (distanciaAtualCm <= DISTANCIA_LIGAR_BUZZER_CM) {
+      leiturasSegurasConsecutivas = 0;
+      if (leiturasPerigosasConsecutivas < LEITURAS_PARA_LIGAR_ALERTA) leiturasPerigosasConsecutivas++;
+      if (leiturasPerigosasConsecutivas >= LEITURAS_PARA_LIGAR_ALERTA) alertaObstaculo = true;
+    } else if (distanciaAtualCm >= DISTANCIA_DESLIGAR_BUZZER_CM) {
+      leiturasPerigosasConsecutivas = 0;
+      if (leiturasSegurasConsecutivas < LEITURAS_PARA_DESLIGAR_ALERTA) leiturasSegurasConsecutivas++;
+      if (leiturasSegurasConsecutivas >= LEITURAS_PARA_DESLIGAR_ALERTA) alertaObstaculo = false;
+    } else {
+      leiturasPerigosasConsecutivas = 0;
+      leiturasSegurasConsecutivas = 0;
+    }
   } else {
-    alertaObstaculo = false;
+    if (leiturasSemEcoConsecutivas < LIMITE_LEITURAS_SEM_ECO) leiturasSemEcoConsecutivas++;
+    if (leiturasSemEcoConsecutivas >= LIMITE_LEITURAS_SEM_ECO) {
+      distanciaAtualCm = -1.0f;
+      alertaObstaculo = false;
+      leiturasPerigosasConsecutivas = 0;
+      leiturasSegurasConsecutivas = 0;
+    }
   }
 
   aplicarEstadoBuzzer();
@@ -385,6 +460,10 @@ void mostrarUltrassonico() {
 
   Serial.print("Buzzer: ");
   Serial.println(buzzerLigado ? "ATIVADO" : "desativado");
+  if (buzzerLigado) {
+    Serial.print("Buzzer Saida: ");
+    Serial.println(saidaBuzzerAtiva ? "APITANDO" : "pausa entre bipes");
+  }
   if (alertaObstaculo) Serial.println("Motivo Buzzer: obstaculo");
   else if (alertaGeofence) Serial.println("Motivo Buzzer: geofence");
 }
@@ -664,6 +743,7 @@ void loop() {
   processarGps();
   atualizarWifi();
   atualizarUltrassonicoEBuzzer();
+  atualizarSaidaBuzzer();
   atualizarImu();
 
   if (millis() - ultimaTelemetria >= INTERVALO_TELEMETRIA_MS) {
