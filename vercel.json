@@ -1,7 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "redirects": [
-    { "source": "/", "destination": "/sompo-agro-risk.html", "permanent": false }
+    { "source": "/sompo-agro-risk.html", "destination": "/", "permanent": true }
+  ],
+  "rewrites": [
+    { "source": "/", "destination": "/sompo-agro-risk.html" }
   ],
   "headers": [
     {
