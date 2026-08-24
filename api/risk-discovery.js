@@ -34,7 +34,8 @@ function geometryOf(element) {
 
 function isAutomaticWaterDanger(tags = {}, closed) {
   const excludedTypes = ['fountain', 'reflecting_pool', 'swimming_pool', 'wastewater'];
-  return Boolean(closed && tags.natural === 'water' && !excludedTypes.includes(tags.water));
+  const excludedUse = tags.leisure === 'swimming_pool' || tags.amenity === 'fountain' || tags.man_made === 'wastewater_plant';
+  return Boolean(closed && tags.natural === 'water' && !excludedUse && !excludedTypes.includes(tags.water));
 }
 
 function distanceToGeometry(latitude, longitude, coordinates) {
@@ -82,6 +83,7 @@ module.exports = async (request, response) => {
         warningMeters: category === 'water' || category === 'flood' ? 10 : 150,
         criticalMeters: category === 'water' || category === 'flood' ? 0 : 60,
         automaticDanger,
+        waterType: element.tags?.water || null,
         distanceMeters: Math.round(distanceToGeometry(latitude, longitude, coordinates)),
       };
     }).filter(Boolean);
