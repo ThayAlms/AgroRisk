@@ -15,6 +15,11 @@
 const byte PIN_TRIG = 5;
 const byte PIN_ECHO = 18;
 const byte PIN_BUZZER = 19;
+const byte PIN_LED_BIPE = 13;
+const byte PIN_LED_ALERTA = 23;
+
+// LEDs externos ativos em HIGH: anodo no GPIO com resistor de 220 a 330 ohms e catodo no GND.
+// O LED de bipe acompanha o som; o LED de alerta permanece aceso durante qualquer alerta.
 
 // Use divisor resistivo/conversor de nível no ECHO do HC-SR04 (5 V -> 3,3 V).
 const float DISTANCIA_LIGAR_BUZZER_CM = 30.0f;
@@ -409,9 +414,12 @@ void atualizarSaidaBuzzer() {
     novaSaida = (millis() % periodo) < duracao;
   }
 
+  digitalWrite(PIN_LED_ALERTA, buzzerLigado ? HIGH : LOW);
+
   if (novaSaida == saidaBuzzerAtiva) return;
   saidaBuzzerAtiva = novaSaida;
   digitalWrite(PIN_BUZZER, saidaBuzzerAtiva ? HIGH : LOW);
+  digitalWrite(PIN_LED_BIPE, saidaBuzzerAtiva ? HIGH : LOW);
 }
 
 void atualizarUltrassonicoEBuzzer() {
@@ -464,6 +472,10 @@ void mostrarUltrassonico() {
     Serial.print("Buzzer Saida: ");
     Serial.println(saidaBuzzerAtiva ? "APITANDO" : "pausa entre bipes");
   }
+  Serial.print("LED GPIO 13 (bipe): ");
+  Serial.println(saidaBuzzerAtiva ? "ACESO" : "apagado");
+  Serial.print("LED GPIO 23 (alerta): ");
+  Serial.println(buzzerLigado ? "ACESO" : "apagado");
   if (alertaObstaculo) Serial.println("Motivo Buzzer: obstaculo");
   else if (alertaGeofence) Serial.println("Motivo Buzzer: geofence");
 }
@@ -706,8 +718,12 @@ void setup() {
   pinMode(PIN_TRIG, OUTPUT);
   pinMode(PIN_ECHO, INPUT);
   pinMode(PIN_BUZZER, OUTPUT);
+  pinMode(PIN_LED_BIPE, OUTPUT);
+  pinMode(PIN_LED_ALERTA, OUTPUT);
   digitalWrite(PIN_TRIG, LOW);
   digitalWrite(PIN_BUZZER, LOW);
+  digitalWrite(PIN_LED_BIPE, LOW);
+  digitalWrite(PIN_LED_ALERTA, LOW);
 
   dht.begin();
   Wire.begin(PIN_IMU_SDA, PIN_IMU_SCL);

@@ -57,3 +57,12 @@ npm.cmd start
 ```
 
 Mantenha o controle ultrassônico dentro do ESP32. Assim, a proteção frontal continua funcionando mesmo se o computador, a rede ou o mapa ficarem indisponíveis.
+
+## LEDs de sinalização
+
+O firmware usa dois LEDs externos ativos em nível alto:
+
+- GPIO 13: pisca exatamente junto com cada bipe do buzzer.
+- GPIO 23: permanece aceso enquanto houver alerta de obstáculo ou geofence, inclusive durante as pausas entre bipes.
+
+Em cada LED, ligue o ânodo ao GPIO por meio de um resistor de 220 a 330 ohms e o cátodo ao GND. O GPIO 23 foi escolhido por estar livre no esquema atual; altere `PIN_LED_ALERTA` caso o segundo LED esteja fisicamente ligado a outro pino.
