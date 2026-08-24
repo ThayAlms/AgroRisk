@@ -24,6 +24,10 @@
   let discoveryCandidates = [];
   let drawingActive = false;
   let locationDiscoveryStarted = false;
+  const mappingPage = Boolean(el('zone-review'));
+  const OPERATOR_REGION_RADIUS_METERS = 25000;
+  let operatorRegion;
+  let operatorRegionCenter;
 
   function setConnection(status) {
     const node = el('connection');
@@ -55,6 +59,24 @@
     if (latestDangerState) renderDangerZones(latestDangerState);
   }
 
+  function lockMapToOperatorRegion(latitude, longitude) {
+    if (!mappingPage || !map || operatorRegionCenter) return;
+    operatorRegionCenter = L.latLng(latitude, longitude);
+    operatorRegion = L.circle(operatorRegionCenter, {
+      radius: OPERATOR_REGION_RADIUS_METERS,
+      color: '#0b5fff', weight: 2, opacity: .7,
+      fillColor: '#0b5fff', fillOpacity: .035, dashArray: '8 7', interactive: false,
+    }).addTo(map);
+    const bounds = operatorRegion.getBounds();
+    map.setMaxBounds(bounds.pad(.18));
+    map.options.maxBoundsViscosity = 1;
+    map.fitBounds(bounds, { padding: [18, 18], animate: false });
+    map.setMinZoom(map.getZoom());
+    pendingCenter = operatorRegionCenter;
+    renderFence();
+    set('region-radius', '25 km ao redor da sua localização');
+  }
+
   function renderDangerZones(state) {
     latestDangerState = state;
     set('danger-count', `${state.zones?.length || 0} áreas confirmadas`);
@@ -63,8 +85,8 @@
     if (!map || !dangerLayerGroup) return;
     dangerLayerGroup.clearLayers();
     for (const zone of state.zones || []) {
-      const color = zone.category === 'quarry' || zone.category === 'cliff' ? '#df082a' : zone.category === 'water' ? '#0b5fff' : '#df8c00';
-      const options = { color, weight: zone.category === 'quarry' ? 3 : 4, opacity: .85, fillColor: color, fillOpacity: .18, dashArray: zone.category === 'quarry' ? '7 5' : null };
+      const color = '#df082a';
+      const options = { color, weight: 4, opacity: .9, fillColor: color, fillOpacity: .22 };
       const layer = zone.closed ? L.polygon(zone.coordinates, options) : L.polyline(zone.coordinates, options);
       layer.bindTooltip(`<strong>${escapeHtml(zone.name)}</strong><br>Confirmada • alerta ${zone.warningMeters} m • crítico ${zone.criticalMeters} m`);
       layer.addTo(dangerLayerGroup);
@@ -87,8 +109,9 @@
     if (!candidateLayerGroup) return;
     candidateLayerGroup.clearLayers();
     for (const zone of discoveryCandidates) {
-      const layer = zone.closed ? L.polygon(zone.coordinates, { color: '#df8c00', weight: 3, dashArray: '6 5', fillOpacity: .08 }) : L.polyline(zone.coordinates, { color: '#df8c00', weight: 4, dashArray: '6 5' });
-      layer.bindTooltip(`<strong>${escapeHtml(zone.name)}</strong><br>Sugestão pendente de confirmação`);
+      const options = { color: '#df082a', weight: 4, opacity: .82, dashArray: '7 5', fillColor: '#df082a', fillOpacity: .14 };
+      const layer = zone.closed ? L.polygon(zone.coordinates, options) : L.polyline(zone.coordinates, options);
+      layer.bindTooltip(`<strong>${escapeHtml(zone.name)}</strong><br>Área de risco • pendente de confirmação`);
       layer.addTo(candidateLayerGroup);
     }
   }
@@ -98,7 +121,7 @@
     if (!container) return;
     const confirmed = latestDangerState?.zones || [];
     const cards = [
-      ...discoveryCandidates.map((zone) => `<article class="zone-candidate ${zone.source === 'manual' ? 'manual' : ''}" data-candidate="${escapeHtml(zone.id)}"><strong>${escapeHtml(zone.name)}</strong><small>${zoneCategory(zone.category)} • ${zone.source === 'manual' ? 'desenhada pelo operador' : 'sugestão do OpenStreetMap'} • ${zone.warningMeters}/${zone.criticalMeters} m</small><div class="zone-actions"><button class="primary" data-confirm-zone="${escapeHtml(zone.id)}">CONFIRMAR</button><button class="outline red" data-reject-zone="${escapeHtml(zone.id)}">REJEITAR</button></div></article>`),
+      ...discoveryCandidates.map((zone) => `<article class="zone-candidate ${zone.source === 'manual' ? 'manual' : ''}" data-candidate="${escapeHtml(zone.id)}"><strong>${escapeHtml(zone.name)}</strong><small>${zoneCategory(zone.category)} • ${finite(zone.distanceMeters) ? `${zone.distanceMeters < 1000 ? Math.round(zone.distanceMeters) + ' m' : (zone.distanceMeters / 1000).toFixed(1) + ' km'} • ` : ''}${zone.source === 'manual' ? 'desenhada pelo operador' : 'sugestão do OpenStreetMap'} • ${zone.warningMeters}/${zone.criticalMeters} m</small><div class="zone-actions"><button class="primary" data-confirm-zone="${escapeHtml(zone.id)}">CONFIRMAR</button><button class="outline red" data-reject-zone="${escapeHtml(zone.id)}">REJEITAR</button></div></article>`),
       ...confirmed.slice(0, 12).map((zone) => `<article class="zone-candidate confirmed"><strong>${escapeHtml(zone.name)}</strong><small>${zoneCategory(zone.category)} • confirmada • ${zone.warningMeters}/${zone.criticalMeters} m</small><div class="zone-actions"><span class="pill safe">ATIVA</span><button class="outline red" data-remove-zone="${escapeHtml(zone.id)}">REMOVER</button></div></article>`),
     ];
     container.innerHTML = cards.length ? cards.join('') : '<div class="zone-review-empty">Nenhuma sugestão pendente. Mapeie riscos próximos ou desenhe uma área conhecida.</div>';
@@ -158,7 +181,7 @@
     if (!map || !window.L?.Draw) return set('risk-feedback', 'O mapa ainda está carregando.');
     try { parseRiskDistances(); } catch (error) { return set('risk-feedback', error.message); }
     set('risk-feedback', 'Clique nos limites da área de risco e depois clique no primeiro ponto para concluir.');
-    new L.Draw.Polygon(map, { shapeOptions: { color: '#df8c00', weight: 3, fillOpacity: .12 }, allowIntersection: false, showArea: true }).enable();
+    new L.Draw.Polygon(map, { shapeOptions: { color: '#df082a', weight: 4, fillColor: '#df082a', fillOpacity: .16 }, allowIntersection: false, showArea: true }).enable();
   }
 
   async function discoverRisks() {
@@ -169,7 +192,7 @@
     }
     set('mapping-state', 'BUSCANDO RISCOS');
     set('risk-feedback', 'Consultando rios, áreas de água, pedreiras e escarpas próximas...');
-    const radius = Number(el('search-radius')?.value || 5000);
+    const radius = Number(el('search-radius')?.value || OPERATOR_REGION_RADIUS_METERS);
     const params = new URLSearchParams({ latitude: browserLocation.latitude, longitude: browserLocation.longitude, radius });
     const response = await fetch(`/api/risk-discovery?${params}`, { cache: 'no-store' });
     const result = await response.json();
@@ -194,7 +217,7 @@
     const center = pendingCenter || (finite(config.geofence.latitude) ? { lat: config.geofence.latitude, lng: config.geofence.longitude } : null);
     if (!center) { set('fence-center', 'Clique no mapa para definir'); return; }
     const radius = Number(el('radius')?.value || config.geofence.radiusMeters);
-    fence = L.circle(center, { radius, color: '#ed1b2f', weight: 2, fillColor: '#0057b8', fillOpacity: .12 }).addTo(map);
+    fence = L.circle(center, { radius, color: '#0b5fff', weight: 3, fillColor: '#0b5fff', fillOpacity: .12 }).addTo(map);
     set('fence-center', `${center.lat.toFixed(6)}, ${center.lng.toFixed(6)}`);
   }
 
@@ -204,7 +227,7 @@
     const position = [reading.gps.latitude, reading.gps.longitude];
     if (!marker) marker = L.circleMarker(position, { radius: 9, color: '#fff', weight: 3, fillColor: '#ed1b2f', fillOpacity: 1 }).addTo(map);
     else marker.setLatLng(position);
-    map.panTo(position, { animate: true, duration: .5 });
+    if (!mappingPage) map.panTo(position, { animate: true, duration: .5 });
   }
 
   function updateTilt(reading) {
@@ -356,13 +379,14 @@
         const point = [payload.latitude, payload.longitude];
         if (!operatorMarker) operatorMarker = L.circleMarker(point, { radius: 7, color: '#fff', weight: 3, fillColor: '#0b5fff', fillOpacity: 1 }).bindTooltip('Sua localização').addTo(map);
         else operatorMarker.setLatLng(point);
-        map.setView(point, Math.max(map.getZoom(), 15));
+        if (mappingPage) lockMapToOperatorRegion(payload.latitude, payload.longitude);
+        else map.setView(point, Math.max(map.getZoom(), 15));
       }
       try {
         await fetch('/api/location', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         set('gps-state', `Notebook • precisão ${Math.round(position.coords.accuracy)} m`);
-        set('location-help', `Localização ativa • precisão aproximada de ${Math.round(position.coords.accuracy)} m.`);
-        set('mapping-state', 'LOCALIZAÇÃO ATIVA');
+        set('location-help', `Localização ativa • precisão aproximada de ${Math.round(position.coords.accuracy)} m • região fixada em 25 km.`);
+        set('mapping-state', mappingPage ? 'REGIÃO DE 25 KM ATIVA' : 'LOCALIZAÇÃO ATIVA');
         const button = el('locate-me'); if (button) { button.textContent = 'LOCALIZAÇÃO ATIVA'; button.disabled = true; }
         if (!locationDiscoveryStarted && el('zone-review')) {
           locationDiscoveryStarted = true;
@@ -388,12 +412,11 @@
     }
     try {
       const permission = await navigator.permissions?.query({ name: 'geolocation' });
-      if (permission?.state === 'granted') startNotebookLocation();
-      else if (permission?.state === 'denied') {
+      if (permission?.state === 'denied') {
         set('location-help', 'Permissão bloqueada. Libere a localização nas configurações do navegador.');
         set('mapping-state', 'PERMISSÃO BLOQUEADA');
-      }
-    } catch { /* Alguns navegadores não implementam a consulta de permissão. */ }
+      } else startNotebookLocation();
+    } catch { startNotebookLocation(); }
   }
 
   el('radius')?.addEventListener('input', () => { set('radius-value', `${el('radius').value} m`); renderFence(); });
