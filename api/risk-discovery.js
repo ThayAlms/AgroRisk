@@ -33,9 +33,9 @@ function geometryOf(element) {
 }
 
 function isAutomaticWaterDanger(tags = {}, closed) {
-  const excludedTypes = ['fountain', 'reflecting_pool', 'swimming_pool', 'wastewater'];
+  const lakeTypes = ['lake', 'reservoir', 'lagoon', 'pond'];
   const excludedUse = tags.leisure === 'swimming_pool' || tags.amenity === 'fountain' || tags.man_made === 'wastewater_plant';
-  return Boolean(closed && tags.natural === 'water' && !excludedUse && !excludedTypes.includes(tags.water));
+  return Boolean(closed && tags.natural === 'water' && !excludedUse && lakeTypes.includes(tags.water));
 }
 
 function distanceToGeometry(latitude, longitude, coordinates) {
