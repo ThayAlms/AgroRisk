@@ -38,6 +38,7 @@ const unsigned long INTERVALO_TELEMETRIA_MS = 2000;
 const unsigned long INTERVALO_ULTRASSONICO_MS = 100;
 const unsigned long INTERVALO_IMU_MS = 20;       // 50 Hz
 const unsigned long INTERVALO_WIFI_MS = 10000;
+const unsigned long INTERVALO_DIAGNOSTICO_WIFI_MS = 30000;
 const unsigned long INTERVALO_ENVIO_WIFI_MS = 2000;
 const unsigned long INTERVALO_REINICIO_IMU_MS = 5000;
 
@@ -90,6 +91,7 @@ unsigned long ultimaMedicaoDistancia = 0;
 unsigned long ultimaLeituraImu = 0;
 unsigned long ultimaTentativaImu = 0;
 unsigned long ultimaTentativaWifi = 0;
+unsigned long ultimoDiagnosticoWifi = 0;
 unsigned long ultimoEnvioWifi = 0;
 
 String comandoSerial;
@@ -145,11 +147,40 @@ void iniciarWifi() {
   Serial.println("Conexao WiFi iniciada sem bloquear os sensores.");
 }
 
+void diagnosticarRedeWifi() {
+  Serial.print("WiFi Diagnostico: procurando rede ");
+  Serial.println(WIFI_SSID);
+
+  int quantidade = WiFi.scanNetworks(false, true);
+  bool redeEncontrada = false;
+  for (int indice = 0; indice < quantidade; indice++) {
+    if (WiFi.SSID(indice) == WIFI_SSID) {
+      redeEncontrada = true;
+      Serial.print("WiFi Diagnostico: rede encontrada, RSSI ");
+      Serial.print(WiFi.RSSI(indice));
+      Serial.print(" dBm, canal ");
+      Serial.println(WiFi.channel(indice));
+      break;
+    }
+  }
+  WiFi.scanDelete();
+
+  if (!redeEncontrada) {
+    Serial.println("WiFi Diagnostico: rede nao encontrada. Confirme o nome e use hotspot 2.4 GHz.");
+  } else {
+    Serial.println("WiFi Diagnostico: rede visivel; se nao conectar, confira senha e use WPA2/compatibilidade maxima.");
+  }
+}
+
 void atualizarWifi() {
   if (!wifiConfigurado() || WiFi.status() == WL_CONNECTED) return;
   if (millis() - ultimaTentativaWifi < INTERVALO_WIFI_MS) return;
 
   ultimaTentativaWifi = millis();
+  if (millis() - ultimoDiagnosticoWifi >= INTERVALO_DIAGNOSTICO_WIFI_MS) {
+    ultimoDiagnosticoWifi = millis();
+    diagnosticarRedeWifi();
+  }
   WiFi.disconnect();
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 }
