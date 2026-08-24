@@ -23,14 +23,16 @@ class SensorParser {
       acceleration: { x: null, y: null, z: null }, gyroscope: { x: null, y: null, z: null },
       environment: { temperatureC: null, humidityPercent: null },
       gps: { latitude: null, longitude: null, valid: false, source: 'esp32', message: null },
-      gateway: { port: activePort?.path || requestedPort || null, baudRate, commandsEnabled },
+      gateway: { transport: 'usb', port: activePort?.path || requestedPort || null, baudRate, commandsEnabled },
     };
     this.hasData = false;
+    this.sentDirect = false;
   }
   number(value) { const parsed = Number(String(value).replace(',', '.')); return Number.isFinite(parsed) ? parsed : null; }
   feed(rawLine) {
     const line = rawLine.trim();
     if (/^-{5,}$/.test(line)) { if (this.hasData) this.finish(); return; }
+    if (/^WiFi API: telemetria enviada\.$/i.test(line)) { this.sentDirect = true; return; }
     let match;
     if ((match = line.match(/^Distancia:\s*([-\d.,]+)\s*cm/i))) { this.reading.distanceCm = this.number(match[1]); this.hasData = true; }
     else if ((match = line.match(/^Buzzer:\s*(.+)$/i))) this.reading.buzzer = /ativado|ligado|on/i.test(match[1]) && !/desativado/i.test(match[1]);
@@ -46,7 +48,7 @@ class SensorParser {
     this.reading.gps.valid = Number.isFinite(this.reading.gps.latitude) && Number.isFinite(this.reading.gps.longitude);
     if (/teste perto de uma janela|area aberta/i.test(line) && this.hasData) this.finish();
   }
-  finish() { const completed = this.reading; this.reset(); this.onReading(completed); }
+  finish() { const completed = this.reading; const sentDirect = this.sentDirect; this.reset(); if (!sentDirect) this.onReading(completed); }
 }
 
 async function publish(reading) {

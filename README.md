@@ -6,6 +6,8 @@ Produção: **https://agrorisk-sompo.vercel.app**
 
 O frontend e as APIs estão na Vercel, os dados ficam no PostgreSQL/Neon e o gateway local conecta a COM3 à nuvem. Consulte [docs/ARQUITETURA_VERCEL.md](docs/ARQUITETURA_VERCEL.md) e [docs/DBEAVER.md](docs/DBEAVER.md).
 
+O firmware usa Wi-Fi como transporte preferencial e mantém a serial USB como contingência. Quando o painel fica sem telemetria recente, ele orienta o operador a conectar o cabo e iniciar o gateway; ao receber novos dados, o aviso desaparece automaticamente.
+
 ## Geofence híbrida
 
 O HTML Sompo é a interface principal. Após o operador autorizar a localização, o sistema usa o navegador como fallback enquanto o GPS do ESP32 estiver sem fix, consulta rios, áreas de água, pedreiras e escarpas próximas no OpenStreetMap e apresenta tudo como sugestão. Somente áreas confirmadas ou desenhadas e confirmadas pelo operador são persistidas e passam a participar dos alertas.

@@ -30,7 +30,13 @@
     if (!node) return;
     node.classList.toggle('online', status.connected);
     node.classList.toggle('offline', !status.connected);
-    node.innerHTML = `<i></i>${status.connected ? `${status.port} • ${status.baudRate} baud` : 'ESP32 desconectado'}`;
+    const directWifi = status.transport === 'wifi';
+    const connectedLabel = directWifi
+      ? `ESP32 via Wi-Fi${finite(status.qualityPercent) ? ` • ${status.qualityPercent}%` : ''}`
+      : `${status.port || 'USB'} • ${status.baudRate || 115200} baud`;
+    node.innerHTML = `<i></i>${status.connected ? connectedLabel : 'ESP32 sem comunicação'}`;
+    const fallback = el('connection-fallback');
+    if (fallback) fallback.hidden = Boolean(status.connected);
   }
 
   function initializeMap(lat, lon) {

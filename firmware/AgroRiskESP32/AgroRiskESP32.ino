@@ -1,5 +1,7 @@
 #include <Wire.h>
 #include <WiFi.h>
+#include <HTTPClient.h>
+#include <WiFiClientSecure.h>
 #include <Adafruit_MPU6050.h>
 #include <Adafruit_Sensor.h>
 #include <DHT.h>
@@ -36,6 +38,7 @@ const unsigned long INTERVALO_TELEMETRIA_MS = 2000;
 const unsigned long INTERVALO_ULTRASSONICO_MS = 100;
 const unsigned long INTERVALO_IMU_MS = 20;       // 50 Hz
 const unsigned long INTERVALO_WIFI_MS = 10000;
+const unsigned long INTERVALO_ENVIO_WIFI_MS = 2000;
 const unsigned long INTERVALO_REINICIO_IMU_MS = 5000;
 
 const float ALFA_ACELERACAO = 0.18f;
@@ -75,6 +78,8 @@ float giroscopioY = NAN;
 float giroscopioZ = NAN;
 float rollGraus = NAN;
 float pitchGraus = NAN;
+float temperaturaAtualC = NAN;
+float umidadeAtualPercent = NAN;
 
 float offsetGiroscopioX = 0.0f;
 float offsetGiroscopioY = 0.0f;
@@ -85,6 +90,7 @@ unsigned long ultimaMedicaoDistancia = 0;
 unsigned long ultimaLeituraImu = 0;
 unsigned long ultimaTentativaImu = 0;
 unsigned long ultimaTentativaWifi = 0;
+unsigned long ultimoEnvioWifi = 0;
 
 String comandoSerial;
 
@@ -111,6 +117,10 @@ const char *qualidadeWifi(int32_t rssi) {
 
 int percentualWifi(int32_t rssi) {
   return constrain(2 * (rssi + 100), 0, 100);
+}
+
+String numeroJson(float valor, unsigned int casasDecimais) {
+  return numeroValido(valor) ? String(valor, casasDecimais) : "null";
 }
 
 // =================================================
@@ -169,6 +179,61 @@ void mostrarWifi() {
   Serial.println("%)");
   Serial.print("WiFi IP: ");
   Serial.println(WiFi.localIP());
+}
+
+bool apiWifiConfigurada() {
+  return CLOUD_API_URL != nullptr && strlen(CLOUD_API_URL) > 0 &&
+         DEVICE_API_KEY != nullptr && strlen(DEVICE_API_KEY) > 0;
+}
+
+void aplicarComandoDaApi(const String &resposta) {
+  if (resposta.indexOf("\"buzzerActive\":true") >= 0) alertaGeofence = true;
+  else if (resposta.indexOf("\"buzzerActive\":false") >= 0) alertaGeofence = false;
+  else return;
+  aplicarEstadoBuzzer();
+}
+
+void enviarTelemetriaWifi() {
+  if (WiFi.status() != WL_CONNECTED || !apiWifiConfigurada()) return;
+  if (millis() - ultimoEnvioWifi < INTERVALO_ENVIO_WIFI_MS) return;
+  ultimoEnvioWifi = millis();
+
+  const bool gpsValido = gps.location.isValid() && gps.location.age() < 5000;
+  const int32_t rssi = WiFi.RSSI();
+  String json;
+  json.reserve(700);
+  json = "{\"deviceId\":\"" + String(DEVICE_ID) + "\",\"telemetry\":{";
+  json += "\"distanceCm\":" + numeroJson(distanciaAtualCm > 0 ? distanciaAtualCm : NAN, 1);
+  json += ",\"buzzer\":" + String(buzzerLigado ? "true" : "false");
+  json += ",\"acceleration\":{\"x\":" + numeroJson(aceleracaoX, 3) + ",\"y\":" + numeroJson(aceleracaoY, 3) + ",\"z\":" + numeroJson(aceleracaoZ, 3) + "}";
+  json += ",\"gyroscope\":{\"x\":" + numeroJson(giroscopioX, 4) + ",\"y\":" + numeroJson(giroscopioY, 4) + ",\"z\":" + numeroJson(giroscopioZ, 4) + "}";
+  json += ",\"environment\":{\"temperatureC\":" + numeroJson(temperaturaAtualC, 1) + ",\"humidityPercent\":" + numeroJson(umidadeAtualPercent, 1) + "}";
+  json += ",\"gps\":{\"latitude\":" + numeroJson(gpsValido ? gps.location.lat() : NAN, 6) + ",\"longitude\":" + numeroJson(gpsValido ? gps.location.lng() : NAN, 6) + ",\"valid\":" + String(gpsValido ? "true" : "false") + ",\"source\":\"esp32\"}";
+  json += ",\"gateway\":{\"transport\":\"wifi\",\"rssi\":" + String(rssi) + ",\"qualityPercent\":" + String(percentualWifi(rssi)) + "}}}";
+
+  WiFiClientSecure cliente;
+  cliente.setInsecure();
+  HTTPClient http;
+  http.setConnectTimeout(5000);
+  http.setTimeout(7000);
+
+  if (!http.begin(cliente, CLOUD_API_URL)) {
+    Serial.println("WiFi API: falha ao iniciar HTTPS; serial permanece ativa.");
+    return;
+  }
+
+  http.addHeader("Content-Type", "application/json");
+  http.addHeader("x-device-key", DEVICE_API_KEY);
+  int codigo = http.POST(json);
+  if (codigo >= 200 && codigo < 300) {
+    aplicarComandoDaApi(http.getString());
+    Serial.println("WiFi API: telemetria enviada.");
+  } else {
+    Serial.print("WiFi API: envio falhou (HTTP ");
+    Serial.print(codigo);
+    Serial.println("); serial permanece ativa.");
+  }
+  http.end();
 }
 
 // =================================================
@@ -494,21 +559,29 @@ void mostrarImu() {
 // DHT11
 // =================================================
 
-void mostrarDht11() {
-  Serial.println("[DHT11]");
+void atualizarDht11() {
   float umidade = dht.readHumidity();
   float temperatura = dht.readTemperature();
 
-  if (isnan(umidade) || isnan(temperatura)) {
+  if (!isnan(umidade) && !isnan(temperatura)) {
+    umidadeAtualPercent = umidade;
+    temperaturaAtualC = temperatura;
+  }
+}
+
+void mostrarDht11() {
+  Serial.println("[DHT11]");
+
+  if (!numeroValido(umidadeAtualPercent) || !numeroValido(temperaturaAtualC)) {
     Serial.println("Falha ao ler o DHT11. Verifique DATA e o resistor de 10k.");
     return;
   }
 
   Serial.print("Temperatura ambiente: ");
-  Serial.print(temperatura, 1);
+  Serial.print(temperaturaAtualC, 1);
   Serial.println(" C");
   Serial.print("Umidade: ");
-  Serial.print(umidade, 1);
+  Serial.print(umidadeAtualPercent, 1);
   Serial.println(" %");
 }
 
@@ -564,6 +637,7 @@ void loop() {
 
   if (millis() - ultimaTelemetria >= INTERVALO_TELEMETRIA_MS) {
     ultimaTelemetria = millis();
+    atualizarDht11();
 
     Serial.println();
     Serial.println("----------------------------------------");
@@ -572,6 +646,8 @@ void loop() {
     mostrarDht11();
     mostrarGps();
     mostrarWifi();
+    // O gateway reconhece esta confirmação e evita duplicar a leitura via USB.
+    enviarTelemetriaWifi();
     // Separador final: faz o gateway publicar o bloco imediatamente.
     Serial.println("----------------------------------------");
   }
