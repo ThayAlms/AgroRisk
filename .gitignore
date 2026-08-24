@@ -8,6 +8,7 @@ npm-debug.log*
 .vercel/
 .agents/
 skills-lock.json
+firmware/**/secrets.h
 
 .vercel
 .env*
