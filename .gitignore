@@ -6,6 +6,8 @@ npm-debug.log*
 .env
 .env.local
 .vercel/
+.agents/
+skills-lock.json
 
 .vercel
 .env*
