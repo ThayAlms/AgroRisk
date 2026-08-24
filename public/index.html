@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AgroGuard • Colheitadeira</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark">A</span><div><strong>AgroGuard</strong><small>telemetria inteligente</small></div></div>
+    <div class="top-actions">
+      <span id="serialStatus" class="connection offline"><i></i> ESP32 desconectado</span>
+      <a class="button secondary" href="/api/export.csv">Exportar CSV</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div><p class="eyebrow">MONITORAMENTO AO VIVO</p><h1>Visão geral da colheitadeira</h1><p id="lastUpdate" class="muted">Aguardando a primeira medição...</p></div>
+      <div id="overallState" class="overall safe"><span>●</span><div><small>ESTADO OPERACIONAL</small><strong>Aguardando dados</strong></div></div>
+    </section>
+
+    <section class="metrics">
+      <article id="distanceCard" class="card metric-card">
+        <div class="card-heading"><span class="icon amber">↔</span><span>Proximidade</span><span id="buzzerBadge" class="badge neutral">Buzzer off</span></div>
+        <div class="metric"><strong id="distance">—</strong><span>cm</span></div>
+        <div class="range"><span id="distanceBar"></span></div>
+        <p id="distanceHint" class="muted">Limite configurado: 30 cm</p>
+      </article>
+      <article class="card metric-card">
+        <div class="card-heading"><span class="icon blue">⌁</span><span>Ambiente</span></div>
+        <div class="split-metric"><div><strong id="temperature">—</strong><span>°C</span><small>Temperatura</small></div><div><strong id="humidity">—</strong><span>%</span><small>Umidade</small></div></div>
+      </article>
+      <article id="gpsCard" class="card metric-card">
+        <div class="card-heading"><span class="icon green">⌖</span><span>Posicionamento</span><span id="gpsBadge" class="badge warning">Sem fix</span></div>
+        <div class="coordinates"><strong id="latitude">—</strong><small>LATITUDE</small><strong id="longitude">—</strong><small>LONGITUDE</small></div>
+      </article>
+      <article id="tiltCard" class="card metric-card">
+        <div class="card-heading"><span class="icon purple">◇</span><span>Inclinação</span><span id="tiltBadge" class="badge neutral">Sem leitura</span></div>
+        <div class="split-metric"><div><strong id="roll">—</strong><span>°</span><small>Lateral</small></div><div><strong id="pitch">—</strong><span>°</span><small>Frontal</small></div></div>
+      </article>
+    </section>
+
+    <section class="content-grid">
+      <article class="card map-card">
+        <div class="section-title"><div><p class="eyebrow">LOCALIZAÇÃO</p><h2>Mapa e cerca virtual</h2></div><span id="fenceBadge" class="badge neutral">Não configurada</span></div>
+        <div id="map"><div class="map-placeholder"><strong>Aguardando coordenadas GPS</strong><span>Leve o módulo para uma área aberta.</span></div></div>
+        <p class="map-help">Clique no mapa para definir o centro da geofence. A posição é salva automaticamente.</p>
+      </article>
+
+      <aside class="card settings-card">
+        <div class="section-title"><div><p class="eyebrow">CONTROLE</p><h2>Limites de segurança</h2></div></div>
+        <form id="settingsForm">
+          <label>Raio da geofence <output id="radiusOutput">250 m</output><input id="radius" type="range" min="25" max="2000" step="25" value="250"></label>
+          <label>Alerta de proximidade <div class="input-unit"><input id="distanceLimit" type="number" min="1" value="30"><span>cm</span></div></label>
+          <label>Alerta de inclinação <div class="input-unit"><input id="tiltLimit" type="number" min="1" max="90" value="15"><span>graus</span></div></label>
+          <div class="fence-coords"><span>Centro da geofence</span><strong id="fenceCoords">Clique no mapa</strong></div>
+          <button class="button primary" type="submit">Salvar configurações</button>
+          <p id="saveMessage" class="save-message"></p>
+        </form>
+      </aside>
+    </section>
+
+    <section class="card history-card">
+      <div class="section-title"><div><p class="eyebrow">HISTÓRICO RECENTE</p><h2>Últimas medições</h2></div></div>
+      <div class="table-wrap"><table><thead><tr><th>Horário</th><th>Distância</th><th>Temperatura</th><th>Umidade</th><th>Inclinação</th><th>GPS</th><th>Estado</th></tr></thead><tbody id="historyBody"><tr><td colspan="7" class="empty">Aguardando dados...</td></tr></tbody></table></div>
+    </section>
+  </main>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

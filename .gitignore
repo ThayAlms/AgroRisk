@@ -1,0 +1,7 @@
+node_modules/
+data/*.ndjson
+data/config.json
+npm-debug.log*
+.env
+.env.local
+.vercel/

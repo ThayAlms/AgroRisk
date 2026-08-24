@@ -1,0 +1,14 @@
+{
+  "name": "monitor-colheitadeira",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Dashboard em tempo real para os sensores da colheitadeira",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "serialport": "^13.0.0"
+  }
+}
