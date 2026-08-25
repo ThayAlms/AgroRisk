@@ -7,4 +7,4 @@ Este processo precisa permanecer ligado no computador conectado ao ESP32.
 3. Feche o Monitor Serial da Arduino IDE.
 4. Execute `npm run gateway`.
 
-O gateway publica um pacote aproximadamente a cada dois segundos e recebe da API o estado desejado do buzzer geográfico.
+O gateway publica um pacote aproximadamente a cada 400 ms (ritmo definido no firmware pelo `INTERVALO_TELEMETRIA_MS`) e recebe da API o estado desejado do buzzer geográfico.

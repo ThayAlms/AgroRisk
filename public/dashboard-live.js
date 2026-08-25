@@ -440,7 +440,7 @@
             lastCloudTimestamp = current.latest.timestamp; updateReading(current.latest, true);
           }
         } catch { setConnection({ connected: false }); }
-      }, 1500);
+      }, 500);
       setInterval(async () => {
         const [zones, freshLogs] = await Promise.all([
           fetch('/api/danger-zones', { cache: 'no-store' }).then((response) => response.json()),

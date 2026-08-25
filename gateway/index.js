@@ -15,6 +15,11 @@ if (!cloudUrl) {
   process.exit(1);
 }
 
+if (!deviceKey) {
+  console.error('DEVICE_API_KEY não configurada. Preencha .env (ou defina AGRORISK_DEVICE_API_KEY nas variáveis de usuário do Windows) com a mesma chave cadastrada na Vercel.');
+  process.exit(1);
+}
+
 class SensorParser {
   constructor(onReading) { this.onReading = onReading; this.reset(); }
   reset() {

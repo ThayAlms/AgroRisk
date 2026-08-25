@@ -31,8 +31,7 @@ module.exports = async (request, response) => {
     else if (returnedToGeofence) log = await addSafetyLog(id, 'info', 'geofence', 'Equipamento retornou à área operacional segura', reading.geofence);
     const buzzerActive = nextLevel === 'critical' || reading.geofence?.inside === false;
     const reason = nextLevel === 'critical' ? 'danger-zone' : reading.geofence?.inside === false ? 'geofence' : null;
-    const command = await setCommand(id, buzzerActive, reason);
-    await saveTelemetry(id, reading);
+    const [command] = await Promise.all([setCommand(id, buzzerActive, reason), saveTelemetry(id, reading)]);
     json(response, 201, { accepted: true, telemetry: reading, command, log });
   } catch (error) { json(response, 500, { error: error.message }); }
 };

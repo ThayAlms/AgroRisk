@@ -50,12 +50,17 @@ const byte QUANTIDADE_PINOS_GPS = sizeof(PINOS_RX_GPS) / sizeof(PINOS_RX_GPS[0])
 const unsigned long GPS_BAUD = 9600;
 const unsigned long TEMPO_TESTE_PINO_GPS = 5000;
 
-const unsigned long INTERVALO_TELEMETRIA_MS = 2000;
+// Ritmo do bloco serial (o que o gateway por cabo lê e publica na nuvem) e do
+// envio direto por WiFi. Antes ambos ficavam presos ao intervalo de leitura do
+// DHT11 (2 s); agora rodam à parte para a inclinação (giroscópio a 50 Hz) chegar
+// ao dashboard sem esperar pelo sensor de temperatura/umidade.
+const unsigned long INTERVALO_TELEMETRIA_MS = 400;
+const unsigned long INTERVALO_DHT_MS = 2000;     // DHT11 não deve ser lido mais rápido que isso
 const unsigned long INTERVALO_ULTRASSONICO_MS = 100;
 const unsigned long INTERVALO_IMU_MS = 20;       // 50 Hz
 const unsigned long INTERVALO_WIFI_MS = 10000;
 const unsigned long INTERVALO_DIAGNOSTICO_WIFI_MS = 30000;
-const unsigned long INTERVALO_ENVIO_WIFI_MS = 2000;
+const unsigned long INTERVALO_ENVIO_WIFI_MS = 400;
 const unsigned long INTERVALO_REINICIO_IMU_MS = 5000;
 
 const float ALFA_ACELERACAO = 0.18f;
@@ -110,6 +115,7 @@ float offsetGiroscopioY = 0.0f;
 float offsetGiroscopioZ = 0.0f;
 
 unsigned long ultimaTelemetria = 0;
+unsigned long ultimaLeituraDht = 0;
 unsigned long ultimaMedicaoDistancia = 0;
 unsigned long ultimaLeituraImu = 0;
 unsigned long ultimaTentativaImu = 0;
@@ -682,6 +688,9 @@ void mostrarImu() {
 // =================================================
 
 void atualizarDht11() {
+  if (millis() - ultimaLeituraDht < INTERVALO_DHT_MS) return;
+  ultimaLeituraDht = millis();
+
   float umidade = dht.readHumidity();
   float temperatura = dht.readTemperature();
 
@@ -762,6 +771,12 @@ void loop() {
   atualizarSaidaBuzzer();
   atualizarImu();
 
+  // Chamada fora do bloco abaixo e autolimitada por INTERVALO_ENVIO_WIFI_MS, para não
+  // depender do ritmo do bloco de log/DHT11. O aviso "WiFi API: telemetria enviada."
+  // continua sendo impresso a cada envio, então o gateway por cabo ainda reconhece que
+  // o WiFi está ativo e evita duplicar a leitura via USB.
+  enviarTelemetriaWifi();
+
   if (millis() - ultimaTelemetria >= INTERVALO_TELEMETRIA_MS) {
     ultimaTelemetria = millis();
     atualizarDht11();
@@ -773,8 +788,6 @@ void loop() {
     mostrarDht11();
     mostrarGps();
     mostrarWifi();
-    // O gateway reconhece esta confirmação e evita duplicar a leitura via USB.
-    enviarTelemetriaWifi();
     // Separador final: faz o gateway publicar o bloco imediatamente.
     Serial.println("----------------------------------------");
   }
