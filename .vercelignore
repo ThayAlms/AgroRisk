@@ -1,0 +1,6 @@
+.vercel/
+.env*
+data/*.log
+data/*.ndjson
+firmware/**/build/
+firmware/**/secrets.h

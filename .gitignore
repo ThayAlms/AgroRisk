@@ -9,6 +9,7 @@ npm-debug.log*
 .agents/
 skills-lock.json
 firmware/**/secrets.h
+firmware/**/build/
 
 .vercel
 .env*
