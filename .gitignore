@@ -1,15 +1,26 @@
+# Dependencias e artefatos Node.js
 node_modules/
+npm-debug.log*
+
+# Ambientes, caches e saidas regeneraveis do MVP Python
+python_mvp/.venv/
+python_mvp/**/__pycache__/
+python_mvp/output/
+python_mvp/output_csv/
+
+# Dados gerados durante a operacao local
 data/*.ndjson
 data/*.log
 data/config.json
-npm-debug.log*
+
+# Credenciais e configuracoes locais (nunca versionar)
 .env
-.env.local
+.env.*
+!.env.example
+firmware/**/secrets.h
+
+# Estados e builds locais regeneraveis
 .vercel/
 .agents/
 skills-lock.json
-firmware/**/secrets.h
 firmware/**/build/
-
-.vercel
-.env*

@@ -4,6 +4,10 @@ Dashboard em nuvem que recebe a telemetria do ESP32 pela porta serial e mostra d
 
 Produção: **https://agrorisk-sompo.vercel.app**
 
+## MVP Python — Sprint 3
+
+O backend acadêmico de análise de risco operacional está em [`python_mvp/`](python_mvp/README.md). Ele recebe telemetria simulada, CSV ou JSON, valida os dados com pandas, calcula um score explicável, classifica o risco e gera alertas, relatórios e dashboard. Consulte o README dessa pasta para executar e testar o fluxo completo.
+
 O frontend e as APIs estão na Vercel, os dados ficam no PostgreSQL/Neon e o gateway local conecta a COM3 à nuvem. Consulte [docs/ARQUITETURA_VERCEL.md](docs/ARQUITETURA_VERCEL.md) e [docs/DBEAVER.md](docs/DBEAVER.md).
 
 O firmware usa Wi-Fi como transporte preferencial e mantém a serial USB como contingência. Quando o painel fica sem telemetria recente, ele orienta o operador a conectar o cabo e iniciar o gateway; ao receber novos dados, o aviso desaparece automaticamente.

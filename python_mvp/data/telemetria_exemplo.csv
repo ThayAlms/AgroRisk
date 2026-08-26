@@ -1,0 +1,6 @@
+timestamp;device_id;distance_cm;temperature_c;humidity_pct;tilt_deg;speed_kmh;inside_geofence;danger_zone;buzzer;source
+2026-08-26T10:00:00-03:00;COLHEITADEIRA-02;300;26;58;2;5;true;safe;false;csv
+2026-08-26T10:01:00-03:00;COLHEITADEIRA-02;65;37;84;12;11;true;warning;false;csv
+2026-08-26T10:02:00-03:00;COLHEITADEIRA-02;18;45;92;19;18;false;critical;true;csv
+data-invalida;COLHEITADEIRA-02;-5;200;110;100;-1;talvez;desconhecida;talvez;csv
+
