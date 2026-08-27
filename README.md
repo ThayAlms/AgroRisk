@@ -1,58 +1,136 @@
-# AgroRisk — monitor da colheitadeira
+# AgroRisk — Análise de Risco Operacional
 
-Dashboard em nuvem que recebe a telemetria do ESP32 pela porta serial e mostra distância, buzzer, temperatura, umidade, GPS, geofence e inclinação em tempo real.
+Projeto acadêmico desenvolvido para a **Sompo Seguros**, com o objetivo de monitorar uma colheitadeira, receber dados de sensores e transformar a telemetria em informações de risco compreensíveis para o operador.
 
-Produção: **https://agrorisk-sompo.vercel.app**
+**Dashboard publicado:** [agrorisk-sompo.vercel.app](https://agrorisk-sompo.vercel.app)
 
-## MVP Python — Sprint 3
+## Integrantes
 
-O backend acadêmico de análise de risco operacional está em [`python_mvp/`](python_mvp/README.md). Ele recebe telemetria simulada, CSV ou JSON, valida os dados com pandas, calcula um score explicável, classifica o risco e gera alertas, relatórios e dashboard. Consulte o README dessa pasta para executar e testar o fluxo completo.
+| Nome | RM |
+|---|---:|
+| Arthur Lins Ocanha | 570110 |
+| Thainá Almeida Santos | 569110 |
+| Vitor Barbosa Vitorino | 570475 |
+| Silvio Dela Libera Neto | 572632 |
 
-O frontend e as APIs estão na Vercel, os dados ficam no PostgreSQL/Neon e o gateway local conecta a COM3 à nuvem. Consulte [docs/ARQUITETURA_VERCEL.md](docs/ARQUITETURA_VERCEL.md) e [docs/DBEAVER.md](docs/DBEAVER.md).
+## Entrega — Python Sprint 3
 
-O firmware usa Wi-Fi como transporte preferencial e mantém a serial USB como contingência. Quando o painel fica sem telemetria recente, ele orienta o operador a conectar o cabo e iniciar o gateway; ao receber novos dados, o aviso desaparece automaticamente.
+O MVP Python está na pasta [`python_mvp/`](python_mvp/README.md). A solução organiza o fluxo completo em módulos e funções:
 
-## Geofence híbrida
+1. recebe telemetria simulada, CSV, JSON ou payload em memória;
+2. valida campos obrigatórios, tipos e limites aceitáveis;
+3. processa as leituras com `pandas`;
+4. aplica regras de negócio e calcula um score de risco de 0 a 100;
+5. classifica cada leitura como risco **BAIXO**, **MÉDIO** ou **ALTO**;
+6. gera alertas, fatores explicativos, relatório CSV, resumo JSON e dashboard PNG;
+7. separa registros inconsistentes para consulta e correção.
 
-O HTML Sompo é a interface principal. Após o operador autorizar a localização, o sistema usa o navegador como fallback enquanto o GPS do ESP32 estiver sem fix, consulta rios, áreas de água, pedreiras e escarpas próximas no OpenStreetMap e apresenta tudo como sugestão. Somente áreas confirmadas ou desenhadas e confirmadas pelo operador são persistidas e passam a participar dos alertas.
+As regras consideram distância de obstáculos, inclinação, temperatura, umidade, velocidade, geofence, proximidade de zonas perigosas e acionamento do buzzer. O projeto inclui cenários de teste para os três níveis de risco e testes automatizados do pipeline completo.
 
-Em computadores Windows, a localização depende de duas permissões: **Configurações do Windows → Privacidade e segurança → Localização** e a permissão de localização do site no navegador. A página publicada deve ser aberta por HTTPS. Depois da autorização, o navegador renova a posição a cada 12 segundos para que um computador parado continue disponível como fallback. Quando o GPS físico do ESP32 está válido, ele representa a máquina; a posição do computador representa o operador e não substitui o GPS físico.
+## Como os dados chegam ao sistema
 
-O servidor local legado está em `local-server.js`. Para a operação em nuvem, execute `npm run gateway` no computador ligado ao ESP32; a Vercel utiliza somente `api/`, `lib/` e `public/`.
+O ESP32 coleta informações do sensor ultrassônico, DHT11, MPU-6050 e GPS NEO-6M. Existem dois caminhos de transmissão:
 
-## Executar
+```text
+Sensores ──> ESP32 ──> Wi-Fi + HTTPS ─────────────> API na Vercel
+                    └─> Cabo USB + porta serial ──> Gateway local ──> API
+                                                                    |
+                                                                    v
+Dashboard <── PostgreSQL/Neon <── Regras de risco do backend <──────┘
 
-1. Feche o Monitor Serial da Arduino IDE.
-2. Abra um terminal nesta pasta.
-3. Execute `npm install` na primeira vez.
-4. Para o modo local, execute `npm start` e abra `http://localhost:3000`.
-5. Para transmitir o ESP32 ao site publicado, execute `npm run gateway`.
+CSV / JSON / simulação ──> Pipeline pandas ──> Score + alertas + relatórios
+```
 
-## Opções de interface
+### Envio direto por Wi-Fi
 
-- `http://localhost:3000/sompo-agro-risk.html` — protótipo institucional Sompo Agro Risk.
-- `http://localhost:3000/versao-1-command-center.html` — central de comando escura.
-- `http://localhost:3000/versao-2-executiva.html` — visual corporativo claro.
-- `http://localhost:3000/versao-3-field-hud.html` — HUD futurista para operação em campo.
+O ESP32 conecta-se a uma rede Wi-Fi de 2,4 GHz e envia a telemetria em JSON diretamente para a API usando uma requisição `POST` por HTTPS. Cada dispositivo é identificado por `DEVICE_ID` e autenticado com `DEVICE_API_KEY`.
 
-Acrescente `?demo=1` ao endereço para avaliar a animação do inclinômetro com valores simulados. Sem esse parâmetro, somente dados reais são apresentados.
+### Envio por cabo USB
 
-A porta USB do ESP32 é detectada automaticamente. Para escolher manualmente no PowerShell:
+Se o Wi-Fi estiver indisponível, a telemetria continua sendo escrita na porta serial USB a 115200 baud. O gateway Node.js detecta a porta COM, interpreta as leituras e publica os dados na mesma API em nuvem. Dessa maneira, o cabo funciona como contingência.
+
+## Processamento e respostas
+
+A API recebe e armazena as leituras no PostgreSQL/Neon. O sistema calcula inclinação e estabilidade, verifica obstáculos, geofence e zonas próximas, atualiza o dashboard e pode devolver um comando de alerta para o buzzer do ESP32.
+
+O painel apresenta:
+
+- distância e alerta de obstáculo;
+- temperatura e umidade;
+- inclinação, estabilidade e movimento;
+- posição GPS e geofence;
+- proximidade de rios, áreas de água, pedreiras e escarpas;
+- status da conexão e histórico de telemetria;
+- exportação de relatório CSV.
+
+Quando o GPS físico ainda não possui posição válida, o navegador pode fornecer temporariamente a localização do computador. As zonas sugeridas pelo OpenStreetMap precisam ser confirmadas pelo operador antes de participarem dos alertas.
+
+## Executar o MVP Python
+
+Requer Python 3.10 ou superior. No terminal:
 
 ```powershell
-$env:SERIAL_PORT = "COM3"
+cd python_mvp
+python -m pip install -r requirements.txt
+python main.py
+```
+
+Para processar o CSV de exemplo, que contém leituras válidas e uma leitura propositalmente inconsistente:
+
+```powershell
+python main.py --entrada csv --arquivo data/telemetria_exemplo.csv --saida output_csv
+```
+
+Para executar os testes:
+
+```powershell
+python -m unittest discover -s tests -v
+```
+
+## Executar o dashboard e o gateway
+
+Requer Node.js 18 ou superior. A partir da raiz do projeto:
+
+```powershell
+npm install
 npm start
 ```
 
-O histórico fica em `data/measurements.ndjson` e pode ser baixado pelo botão **Exportar relatório**. O CSV usa separador `;`, datas no horário de São Paulo e 40 colunas agrupadas por identificação, ambiente, estabilidade/IMU, localização, geofence e riscos geográficos. Valores booleanos são exportados como `SIM`/`NAO` e números usam vírgula decimal para facilitar a abertura no Excel em português.
+O modo local fica disponível em `http://localhost:3000`. Para conectar o ESP32 por cabo ao sistema publicado:
 
-Eventos de aproximação de rios e pedreiras ficam em `data/safety-logs.ndjson`. As zonas automáticas vêm do OpenStreetMap e são apenas uma camada auxiliar; áreas críticas devem ser conferidas e homologadas antes da operação real.
+```powershell
+npm run gateway
+```
 
-## Formato serial reconhecido
+Antes de iniciar o gateway, feche o Monitor Serial da Arduino IDE para liberar a porta COM. As credenciais devem ser copiadas de `.env.example` para um arquivo `.env` local, que não é enviado ao Git.
 
-O parser foi criado a partir da saída real da placa em 115200 baud. Também reconhece coordenadas nos formatos `Latitude: ...` / `Longitude: ...` ou `GPS: latitude, longitude`.
+## Estrutura do repositório
 
-Observações do teste inicial:
+```text
+AgroRisk/
+├── api/             APIs implantadas na Vercel
+├── db/              estrutura do banco PostgreSQL
+├── docs/            documentação de arquitetura e banco
+├── firmware/        código do ESP32 e exemplos de configuração
+├── gateway/         leitura da porta serial e envio à nuvem
+├── lib/             persistência e regras compartilhadas do backend web
+├── public/          dashboard e interfaces do operador
+├── python_mvp/      backend acadêmico da Sprint 3
+└── scripts/         testes de integração do sistema web
+```
 
-- O GPS foi detectado no GPIO 16, porém ainda estava sem localização. Teste ao ar livre.
-- O MPU-6050 retornou aceleração e giro iguais a zero. A inclinação depende de aceleração X/Y/Z válida.
+## Validação realizada
+
+- teste de integração do sistema JavaScript aprovado;
+- cinco testes automatizados do MVP Python aprovados;
+- cenários simulados de risco baixo, médio e alto;
+- validação de dados inválidos e campos obrigatórios;
+- geração verificada de CSV, JSON e dashboard.
+
+## Documentação complementar
+
+- [Detalhes do MVP Python](python_mvp/README.md)
+- [Arquitetura em nuvem](docs/ARQUITETURA_VERCEL.md)
+- [Configuração do banco no DBeaver](docs/DBEAVER.md)
+- [Firmware do ESP32](firmware/AgroRiskESP32/README.md)
+- [Integração do buzzer](INTEGRACAO_BUZZER_ESP32.md)
