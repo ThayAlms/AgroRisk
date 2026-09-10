@@ -1,0 +1,18 @@
+SOMPO AGRO RISK — ACESSOS DE DEMONSTRAÇÃO
+==========================================
+
+Portal do produtor / dono da fazenda
+E-mail: donodafazenda@sompo.com
+Senha: 123456789
+Destino: /frota.html
+
+Central corporativa Sompo
+E-mail: sompo@sompo.com
+Senha: 123456789
+Destino: /sompo.html
+
+IMPORTANTE
+Estas credenciais são exclusivamente demonstrativas. A senha é propositalmente
+simples para apresentação e deve ser substituída antes de qualquer uso real.
+No banco, as senhas são armazenadas por hash scrypt; este arquivo é o único
+registro em texto simples solicitado para facilitar os testes.

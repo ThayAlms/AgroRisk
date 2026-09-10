@@ -54,11 +54,11 @@ async function main() {
     assert.equal(new Set(htmlIds).size, htmlIds.length, 'O HTML contém IDs duplicados');
   }
 
-  const location = require('../api/location');
-  const configApi = require('../api/config');
-  const telemetry = require('../api/telemetry');
-  const dangerZones = require('../api/danger-zones');
-  const discovery = require('../api/risk-discovery');
+  const location = require('../handlers/location');
+  const configApi = require('../handlers/config');
+  const telemetry = require('../handlers/telemetry');
+  const dangerZones = require('../handlers/danger-zones');
+  const discovery = require('../handlers/risk-discovery');
   const sameOriginHeaders = { origin: 'https://agrorisk.test', host: 'agrorisk.test', 'sec-fetch-site': 'same-origin' };
 
   const defaultConfig = await call(configApi, { method: 'GET' });
@@ -109,7 +109,7 @@ async function main() {
   assert.equal(enrichTelemetry(telemetryAt(-23.5505, -46.6295), riskConfig, [lakeZone]).danger.level, 'critical');
   assert.equal(enrichTelemetry(telemetryAt(-23.5505, -46.62895), riskConfig, [lakeZone]).danger.level, 'warning');
 
-  const exportCsv = require('../api/export.csv');
+  const exportCsv = require('../handlers/export.csv');
   const exported = await call(exportCsv, { method: 'GET' });
   assert.equal(exported.statusCode, 200);
   assert.match(exported.headers['Content-Disposition'], /agrorisk-relatorio-operacional\.csv/);

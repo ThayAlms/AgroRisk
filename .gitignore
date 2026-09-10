@@ -24,3 +24,6 @@ firmware/**/secrets.h
 .agents/
 skills-lock.json
 firmware/**/build/
+
+.vercel
+.env*

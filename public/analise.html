@@ -3,12 +3,15 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="required-role" content="farmer">
   <meta name="description" content="Análise explicável da telemetria AgroRisk para corretagem, subscrição e sinistros">
   <title>Análise Explicável | Sompo Agro Risk</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/analise.css">
+  <style>.model-signal{margin-top:15px;padding:12px;text-align:left;background:#f4f7fc;border-left:3px solid #0b5fff;border-radius:5px}.model-signal span,.model-signal small{display:block;font-size:7px;color:#69717e}.model-signal strong{display:block;font-size:11px;margin:5px 0 3px}.model-signal small{line-height:1.4}.disclaimer small{display:block;color:#8a919b;font-size:7px;margin-top:6px;word-break:break-all}</style>
+  <script src="/auth-guard.js"></script>
 </head>
 <body>
   <div class="utility"><div class="utility-inner"><span>INTELIGÊNCIA DE RISCO EXPLICÁVEL</span><span id="generated-at">Carregando análise...</span></div></div>
@@ -26,6 +29,7 @@
         <div id="score-ring" class="score-ring"><div><strong id="risk-score">—</strong><small>/ 100</small></div></div>
         <h2 id="machine-name">Equipamento</h2><p id="machine-meta">Aguardando dados</p>
         <div class="mini-stats"><div><span>RECORRÊNCIA</span><b id="attention-count">—</b></div><div><span>TENDÊNCIA</span><b id="risk-direction">—</b></div><div><span>COMPLETUDE</span><b id="data-quality">—</b></div></div>
+        <div class="model-signal"><span>SINAL PREDITIVO · CONSULTIVO</span><strong id="model-prediction">Somente regra determinística</strong><small id="model-version">Nenhum modelo validado ativo</small></div>
       </article>
 
       <article class="narrative-card card">
@@ -43,7 +47,7 @@
       <article class="card telemetry-card"><div class="section-head"><div><span class="eyebrow">LEITURA ORIGINAL</span><h2>Snapshot da telemetria</h2></div><span id="telemetry-time">—</span></div><div id="telemetry-grid" class="telemetry-grid"></div><div class="data-gaps"><strong>Lacunas identificadas</strong><div id="missing-data"></div></div></article>
     </section>
 
-    <footer class="disclaimer"><strong>Limite de uso</strong><p id="disclaimer-text">Esta narrativa é apoio à análise humana e não substitui critérios técnicos, contratuais ou regulatórios.</p></footer>
+    <footer class="disclaimer"><strong>Limite de uso</strong><div><p id="disclaimer-text">Esta narrativa é apoio à análise humana e não substitui critérios técnicos, contratuais ou regulatórios.</p><small id="governance-meta"></small></div></footer>
   </main>
   <script src="/analise.js"></script>
 </body>

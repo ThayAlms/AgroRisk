@@ -4,12 +4,14 @@
   "private": true,
   "description": "Dashboard em tempo real para os sensores da colheitadeira",
   "scripts": {
-    "test": "node scripts/test-hybrid.js && node scripts/test-risk-fleet.js && node scripts/test-explanation.js",
+    "test": "node scripts/test-hybrid.js && node scripts/test-risk-fleet.js && node scripts/test-explanation.js && node scripts/test-auth-portfolio.js",
+    "train:model": "node --env-file-if-exists=.env.local scripts/train-risk-model.js",
     "start": "node local-server.js",
     "dev": "node --watch local-server.js",
     "gateway": "powershell -NoProfile -ExecutionPolicy Bypass -File gateway/start-gateway.ps1",
     "smoke:cloud": "node --env-file-if-exists=.vercel/.env.production.local scripts/smoke-cloud.js",
     "smoke:hybrid": "node scripts/smoke-hybrid-cloud.js",
+    "smoke:analysis": "node --env-file-if-exists=.env.local scripts/smoke-analysis.js",
     "vercel-dev": "vercel dev"
   },
   "dependencies": {

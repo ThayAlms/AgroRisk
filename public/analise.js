@@ -38,6 +38,12 @@
     $('attention-count').textContent = result.history.samples ? `${result.history.attentionCount}/${result.history.samples}` : '—';
     $('risk-direction').textContent = result.history.direction;
     $('data-quality').textContent = `${result.quality.completenessPercent}%`;
+    $('model-prediction').textContent = result.model.available ? `${result.model.probabilityPercent}% de chance de escalada` : 'Somente regra determinística';
+    $('model-version').textContent = result.model.available
+      ? `${result.model.modelVersion} · horizonte de ${result.model.horizonReadings} leituras`
+      : result.governance?.latestModelVersion
+        ? `${result.governance.latestModelVersion} · status ${result.governance.status} · não usado na explicação`
+        : 'Nenhum modelo treinado';
     $('factor-total').textContent = `${result.audit.factors.reduce((total, factor) => total + Number(factor.points || 0), 0)} pontos brutos`;
     $('factor-list').innerHTML = result.audit.factors.map((factor) => `<div class="factor ${factor.points ? '' : 'zero'}"><div><strong>${escapeHtml(factor.label)}</strong><small>${escapeHtml(factor.code)}</small></div><b>+${Number(factor.points || 0)}</b></div>`).join('') || '<div class="factor zero"><strong>Sem fatores disponíveis</strong><b>—</b></div>';
     const t = result.audit.telemetry;
@@ -51,6 +57,11 @@
     $('telemetry-time').textContent = t.timestamp ? new Date(t.timestamp).toLocaleString('pt-BR') : 'Sem horário';
     $('missing-data').innerHTML = result.quality.missing.length ? result.quality.missing.map((item) => `<span class="gap">${escapeHtml(item.label)}</span>`).join('') : '<span class="gap complete">Telemetria essencial completa</span>';
     $('disclaimer-text').textContent = result.disclaimer;
+    $('governance-meta').textContent = result.model.available
+      ? `Fórmula: ${result.source.formulaVersion} · modelo: ${result.model.modelVersion} · dataset: ${result.model.datasetHash}`
+      : result.governance?.latestModelVersion
+        ? `Fórmula: ${result.source.formulaVersion} · último modelo: ${result.governance.latestModelVersion} (${result.governance.status}) · dataset: ${result.governance.datasetHash}`
+        : `Fórmula: ${result.source.formulaVersion} · sem modelo preditivo treinado`;
     $('telemetry-link').href = `/sompo-agro-risk.html?deviceId=${encodeURIComponent(deviceId)}`;
     $('mapping-link').href = `/mapeamento-riscos.html?deviceId=${encodeURIComponent(deviceId)}`;
     renderNarrative();

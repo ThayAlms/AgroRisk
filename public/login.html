@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Acesso seguro aos portais Sompo Agro Risk">
+  <title>Acessar | Sompo Agro Risk</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/login.css">
+</head>
+<body>
+  <main class="login-shell">
+    <section class="brand-panel" aria-label="Apresentação do Agro Risk">
+      <img src="/sompo-logo.png" alt="Sompo" class="brand-logo">
+      <div class="brand-copy">
+        <span class="eyebrow">SOMPO AGRO RISK</span>
+        <h1>Uma visão segura para cada decisão no campo.</h1>
+        <p>Telemetria operacional para o produtor. Inteligência de carteira e prevenção para a seguradora.</p>
+      </div>
+      <div class="signal-card">
+        <span class="signal-dot"></span>
+        <div><strong>Plataforma operacional</strong><small>Risco auditável e análise explicável</small></div>
+      </div>
+    </section>
+
+    <section class="access-panel">
+      <div class="access-inner">
+        <div class="access-heading"><span class="eyebrow">AMBIENTE SEGURO</span><h2>Entre na sua conta</h2><p>Você será direcionado automaticamente ao painel correspondente ao seu perfil.</p></div>
+        <form id="login-form">
+          <label><span>E-MAIL</span><input id="email" name="email" type="email" autocomplete="username" required placeholder="seuemail@empresa.com"></label>
+          <label><span>SENHA</span><div class="password-field"><input id="password" name="password" type="password" autocomplete="current-password" required placeholder="Digite sua senha"><button id="toggle-password" type="button" aria-label="Mostrar senha">MOSTRAR</button></div></label>
+          <div id="login-feedback" class="feedback" role="alert"></div>
+          <button id="login-submit" class="login-button" type="submit">ACESSAR PLATAFORMA <span>→</span></button>
+        </form>
+
+        <div class="demo-access">
+          <div class="demo-title"><span>CONTAS DE DEMONSTRAÇÃO</span><i></i></div>
+          <button type="button" data-demo="donodafazenda@sompo.com"><span class="demo-icon farmer">F</span><span><strong>Portal do produtor</strong><small>donodafazenda@sompo.com</small></span><b>USAR</b></button>
+          <button type="button" data-demo="sompo@sompo.com"><span class="demo-icon sompo">S</span><span><strong>Central corporativa Sompo</strong><small>sompo@sompo.com</small></span><b>USAR</b></button>
+          <p>Senha de demonstração: <strong>123456789</strong></p>
+        </div>
+      </div>
+      <footer>Ambiente demonstrativo · Dados protegidos por sessão autenticada</footer>
+    </section>
+  </main>
+  <script src="/login.js"></script>
+</body>
+</html>

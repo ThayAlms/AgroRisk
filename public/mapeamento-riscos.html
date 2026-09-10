@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="required-role" content="farmer">
   <meta name="description" content="Mapeamento híbrido de áreas de risco do Sompo Agro Risk">
   <title>Sompo Agro Risk • Mapeamento de Riscos</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14,6 +15,7 @@
   <style>
     .map-tag{border-left-color:var(--blue)}.map-tag small{margin-top:7px}.map-tag small:first-child{margin-top:0}.map-legend{position:absolute;z-index:500;right:16px;bottom:16px;display:grid;gap:7px;background:#fffffff2;box-shadow:0 4px 16px #0002;padding:10px 12px;font-size:9px}.map-legend span{display:flex;align-items:center;gap:7px}.map-legend i{display:inline-block;width:17px;height:10px}.map-legend .safe-area{border:2px solid var(--blue);background:#0b5fff18}.map-legend .warning-area{border:2px solid #f28c00;background:#f6a4004d}.map-legend .risk-area{border:2px solid var(--red);background:#df082a38}.zone-candidate,.zone-candidate.manual,.zone-candidate.confirmed{border-left-color:var(--red)}.zone-candidate.confirmed{background:#fff7f8}@media(max-width:650px){.map-legend{right:10px;bottom:10px}.map-tag{left:10px;bottom:65px}}
   </style>
+  <script src="/auth-guard.js"></script>
 </head>
 <body>
   <div class="utility"><div class="utility-inner"><a href="#">Portal do Corretor</a><a href="#">Portal do Segurado</a><a href="#">Atendimento</a></div></div>

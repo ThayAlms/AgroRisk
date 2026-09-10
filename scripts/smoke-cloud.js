@@ -2,9 +2,11 @@ const baseUrl = String(process.argv[2] || process.env.CLOUD_API_URL || 'https://
 const deviceKey = process.env.AGRORISK_DEVICE_API_KEY || process.env.DEVICE_API_KEY;
 const deviceId = 'colheitadeira-01';
 
-async function request(path, options) {
+let sessionCookie = '';
+async function request(path, options = {}) {
   const response = await fetch(`${baseUrl}${path}`, {
     ...options,
+    headers: { ...(options.headers || {}), ...(sessionCookie ? { cookie: sessionCookie } : {}) },
     signal: AbortSignal.timeout(15_000),
   });
   const body = await response.json();
@@ -15,6 +17,9 @@ async function request(path, options) {
 async function main() {
   if (!deviceKey) throw new Error('DEVICE_API_KEY não foi carregada');
   const health = await request('/api/health');
+  const loginResponse = await fetch(`${baseUrl}/api/login`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'donodafazenda@sompo.com', password: '123456789' }), signal: AbortSignal.timeout(15_000) });
+  if (!loginResponse.ok) throw new Error(`login: HTTP ${loginResponse.status}`);
+  sessionCookie = String(loginResponse.headers.get('set-cookie') || '').split(';')[0];
   const now = new Date().toISOString();
   await request('/api/telemetry', {
     method: 'POST',

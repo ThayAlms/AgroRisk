@@ -4,6 +4,13 @@ Projeto acadêmico desenvolvido para a **Sompo Seguros**, com o objetivo de moni
 
 **Dashboard publicado:** [agrorisk-sompo.vercel.app](https://agrorisk-sompo.vercel.app)
 
+## Acessos demonstrativos
+
+- `donodafazenda@sompo.com`: portal do produtor e frota vinculada à fazenda;
+- `sompo@sompo.com`: central corporativa com carteira, exposição e triagem de sinistros.
+
+A senha de ambas no ambiente demonstrativo é `123456789`. As credenciais também estão em `ACESSOS_TESTE.txt`. Em uso real, substitua essas contas e configure `APP_SESSION_SECRET` com uma chave aleatória longa.
+
 ## Integrantes
 
 | Nome | RM |
@@ -68,6 +75,18 @@ O painel apresenta:
 A rota `/frota.html` é a entrada do gestor e organiza automaticamente os equipamentos nas colunas **Risco alto**, **Risco médio**, **Risco baixo** e **Sem sinal**. Dentro de cada coluna, os maiores scores aparecem primeiro. O gestor pode buscar por máquina, operador, fazenda ou motivo, filtrar a frota e cadastrar os dados operacionais de cada equipamento.
 
 O botão **Ver detalhes** abre o dashboard de telemetria com o `deviceId` selecionado. As regras JavaScript geram `risk.score`, `risk.level`, fatores explicáveis e alertas usando os mesmos limites de classificação do MVP Python.
+
+### Análise explicável e modelo preditivo
+
+A rota `/analise.html?deviceId=...` traduz score, fatores e telemetria para corretor, subscritor e analista de sinistros. A explicação preserva a fórmula auditável e registra a versão da análise e dos dados utilizados. O modelo preditivo, quando validado e ativo, informa apenas a chance consultiva de escalada futura.
+
+Para treinar e validar uma nova versão com o histórico PostgreSQL configurado em `.env.local`:
+
+```powershell
+npm run train:model
+```
+
+Consulte [Governança da camada analítica](docs/GOVERNANCA_MODELO.md) para fronteira de decisão, critérios de ativação e trilha em `safety_logs`.
 
 Quando o GPS físico ainda não possui posição válida, o navegador pode fornecer temporariamente a localização do computador. As zonas sugeridas pelo OpenStreetMap precisam ser confirmadas pelo operador antes de participarem dos alertas.
 

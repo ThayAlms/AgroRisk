@@ -430,6 +430,7 @@
   async function start() {
     document.querySelectorAll('a[href="/mapeamento-riscos.html"]').forEach((link) => { link.href = deviceApi('/mapeamento-riscos.html'); });
     document.querySelectorAll('a[href="/sompo-agro-risk.html"]').forEach((link) => { link.href = deviceApi('/sompo-agro-risk.html'); });
+    document.querySelectorAll('a[href="/analise.html"]').forEach((link) => { link.href = deviceApi('/analise.html'); });
     document.querySelectorAll('a[href^="/api/export.csv"]').forEach((link) => { link.href = deviceApi('/api/export.csv'); });
     const [status, history, dangerZones, logs] = await Promise.all([
       fetch(deviceApi('/api/status'), { cache: 'no-store' }).then((r) => r.json()),

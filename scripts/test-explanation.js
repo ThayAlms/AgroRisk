@@ -20,4 +20,13 @@ const unavailable = generateExplanation(null, [], { name: 'Trator 02' });
 assert.equal(unavailable.source.level, 'SEM_SINAL');
 assert.match(unavailable.audiences.claims.summary, /não comprova causa/);
 
+const model = {
+  version: 'test-model-v1', datasetHash: 'abc123', validationMetrics: { precision: 0.8, recall: 0.7 },
+  artifact: { weights: Array(10).fill(0), intercept: 0, means: Array(10).fill(0), standardDeviations: Array(10).fill(1), horizonReadings: 5 },
+};
+const predicted = generateExplanation(reading, [reading], { name: 'Colheitadeira Norte 07' }, model);
+assert.equal(predicted.model.available, true);
+assert.equal(predicted.model.probabilityPercent, 50);
+assert.match(predicted.audiences.underwriter.summary, /apenas consultivo/);
+
 console.log('Explanation tests passed');

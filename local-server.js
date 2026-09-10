@@ -7,6 +7,9 @@ const { ReadlineParser } = require('@serialport/parser-readline');
 const { calculateStability, calculateOperationalRisk } = require('./lib/risk');
 const { prepareFleetMachine, sortFleet, summarizeFleet } = require('./lib/fleet');
 const { generateExplanation } = require('./lib/explanation');
+const { getActiveModel, getLatestModel } = require('./lib/db');
+const { authenticate, readSession, setSessionCookie, clearSessionCookie, publicUser } = require('./lib/auth');
+const { buildSompoPortfolio } = require('./lib/portfolio');
 
 const WEB_PORT = Number(process.env.PORT || 3000);
 const SERIAL_BAUD = Number(process.env.SERIAL_BAUD || 115200);
@@ -448,7 +451,7 @@ function exportCsv(response) {
 }
 
 function serveStatic(response, pathname) {
-  const requested = pathname === '/' ? 'frota.html' : pathname.slice(1);
+  const requested = pathname === '/' ? 'login.html' : pathname.slice(1);
   const file = path.resolve(PUBLIC_DIR, requested);
   if (!file.startsWith(`${path.resolve(PUBLIC_DIR)}${path.sep}`) && file !== path.join(PUBLIC_DIR, 'index.html')) {
     return sendJson(response, 403, { error: 'Acesso negado' });
@@ -464,6 +467,27 @@ function serveStatic(response, pathname) {
 const server = http.createServer(async (request, response) => {
   const url = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
   try {
+    if (request.method === 'POST' && url.pathname === '/api/login') {
+      const body = await readBody(request);
+      const user = await authenticate(body.email, body.password);
+      if (!user) return sendJson(response, 401, { error: 'E-mail ou senha inválidos' });
+      setSessionCookie(request, response, user);
+      return sendJson(response, 200, { user: publicUser(user), redirect: user.role === 'sompo' ? '/sompo.html' : '/frota.html' });
+    }
+    if (request.method === 'GET' && url.pathname === '/api/session') {
+      const user = readSession(request);
+      return user ? sendJson(response, 200, { authenticated: true, user: publicUser(user) }) : sendJson(response, 401, { authenticated: false });
+    }
+    if (request.method === 'POST' && url.pathname === '/api/logout') {
+      clearSessionCookie(request, response);
+      return sendJson(response, 200, { ok: true });
+    }
+    const authenticatedUser = readSession(request);
+    if ((url.pathname.startsWith('/api/') || url.pathname === '/events') && !authenticatedUser) return sendJson(response, 401, { error: 'Autenticação necessária' });
+    if (request.method === 'GET' && url.pathname === '/api/sompo-portfolio') {
+      if (authenticatedUser.role !== 'sompo') return sendJson(response, 403, { error: 'Acesso exclusivo Sompo' });
+      return sendJson(response, 200, await buildSompoPortfolio());
+    }
     if (request.method === 'GET' && url.pathname === '/api/fleet') {
       const latestByDevice = new Map();
       for (const reading of history) latestByDevice.set(reading.deviceId || 'colheitadeira-01', reading);
@@ -487,7 +511,11 @@ const server = http.createServer(async (request, response) => {
       const deviceHistory = history.filter((reading) => (reading.deviceId || 'colheitadeira-01') === deviceId).slice(-30);
       const current = deviceHistory.at(-1) || ((latest?.deviceId || 'colheitadeira-01') === deviceId ? latest : null);
       const metadata = machines[deviceId] || { deviceId, name: deviceId };
-      return sendJson(response, 200, generateExplanation(current, deviceHistory, metadata));
+      const model = await getActiveModel();
+      const latestModel = await getLatestModel();
+      const analysis = generateExplanation(current, deviceHistory, metadata, model);
+      analysis.governance = latestModel ? { latestModelVersion: latestModel.version, status: latestModel.status, algorithm: latestModel.algorithm, datasetHash: latestModel.datasetHash, datasetRows: latestModel.datasetRows, trainingStartedAt: latestModel.trainingStartedAt, trainingEndedAt: latestModel.trainingEndedAt, validationMetrics: latestModel.validationMetrics } : { latestModelVersion: null, status: 'not-trained' };
+      return sendJson(response, 200, analysis);
     }
     if (request.method === 'PUT' && url.pathname === '/api/machines') {
       const body = await readBody(request);

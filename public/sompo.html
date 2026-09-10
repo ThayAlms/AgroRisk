@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="required-role" content="sompo">
+  <meta name="description" content="Central corporativa de risco agrícola Sompo">
+  <title>Central de Carteira | Sompo Agro Risk</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/sompo.css">
+  <script src="/auth-guard.js"></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand"><img src="/sompo-logo.png" alt="Sompo"><span>AGRO RISK</span></div>
+    <nav aria-label="Navegação corporativa">
+      <span class="nav-label">VISÃO EXECUTIVA</span>
+      <a class="active" href="#visao"><i>⌂</i><span>Central da carteira</span></a>
+      <a href="#segurados"><i>◇</i><span>Segurados</span><b id="nav-customer-count">—</b></a>
+      <a href="#sinistros"><i>!</i><span>Sinistros e indícios</span><b id="nav-claim-count">—</b></a>
+      <span class="nav-label">INTELIGÊNCIA</span>
+      <a href="#riscos"><i>⌁</i><span>Mapa de exposição</span></a>
+      <a href="#governanca"><i>✓</i><span>Governança do modelo</span></a>
+    </nav>
+    <div class="sidebar-note"><span>MODELO CONSULTIVO</span><strong>Regra auditável ativa</strong><p>A IA organiza evidências, mas não decide cobertura.</p></div>
+    <div class="sidebar-user"><div class="avatar">SO</div><span><strong data-user-name>Equipe Sompo</strong><small>Operações Agro</small></span><button id="logout" type="button" aria-label="Sair">↪</button></div>
+  </aside>
+
+  <main class="workspace" id="visao">
+    <header class="topbar">
+      <div><span class="breadcrumb">SOMPO AGRO / CENTRAL DE CARTEIRA</span><h1>Panorama da carteira rural</h1></div>
+      <div class="top-actions"><span id="updated-at">Atualizando dados...</span><button id="refresh" type="button">↻ ATUALIZAR</button></div>
+    </header>
+
+    <div class="demo-banner"><strong>AMBIENTE DEMONSTRATIVO</strong><span>A carteira abaixo combina telemetria real do protótipo com contratos e sinistros fictícios para validação da experiência.</span></div>
+
+    <section class="kpi-grid" aria-label="Indicadores principais">
+      <article class="kpi primary"><div class="kpi-label"><span>EXPOSIÇÃO SEGURADA</span><i>CARTEIRA ATIVA</i></div><strong id="kpi-exposure">—</strong><small id="kpi-contractors">— segurados ativos</small><div class="kpi-line"><span style="width:78%"></span></div></article>
+      <article class="kpi danger"><div class="kpi-label"><span>EXPOSIÇÃO PRIORITÁRIA</span><i>RISCO ALTO</i></div><strong id="kpi-high-exposure">—</strong><small><b id="kpi-high">—</b> segurados requerem ação</small><div class="kpi-line"><span id="high-exposure-line"></span></div></article>
+      <article class="kpi"><div class="kpi-label"><span>PRÊMIO ANUAL</span><i>CONTRATADO</i></div><strong id="kpi-premium">—</strong><small>base demonstrativa vigente</small><div class="kpi-line"><span style="width:64%"></span></div></article>
+      <article class="kpi warning"><div class="kpi-label"><span>PERDAS EM ANÁLISE</span><i id="kpi-claims">— EVENTOS</i></div><strong id="kpi-loss">—</strong><small><b id="kpi-loss-ratio">—</b> do prêmio anual</small><div class="kpi-line"><span id="loss-ratio-line"></span></div></article>
+    </section>
+
+    <section class="decision-grid" id="riscos">
+      <article class="panel priority-panel"><header><div><span class="section-kicker">PRIORIDADE AGORA</span><h2>Onde agir primeiro</h2></div><span class="live-pill"><i></i> CARTEIRA MONITORADA</span></header><div id="priority-list" class="priority-list"></div></article>
+      <article class="panel exposure-panel"><header><div><span class="section-kicker">CONCENTRAÇÃO</span><h2>Exposição por nível de risco</h2></div></header><div id="exposure-chart" class="exposure-chart"></div><footer><span><i class="high"></i>Alto</span><span><i class="medium"></i>Médio</span><span><i class="low"></i>Baixo</span><span><i class="offline"></i>Sem sinal</span></footer></article>
+      <article class="panel pulse-panel"><header><div><span class="section-kicker">SINAL DA CARTEIRA</span><h2>Índice de atenção</h2></div></header><div class="pulse-score"><div class="score-ring"><strong id="attention-score">—</strong><span>/ 100</span></div><div><strong id="attention-label">Calculando</strong><p>Combinação demonstrativa de risco, perdas estimadas e conectividade.</p></div></div><div class="pulse-row"><span>Segurados críticos</span><b id="critical-share">—</b></div><div class="pulse-row"><span>Máquinas online</span><b id="online-share">—</b></div></article>
+    </section>
+
+    <section class="panel contractors-panel" id="segurados">
+      <header><div><span class="section-kicker">CARTEIRA COMPLETA</span><h2>Segurados e exposição</h2></div><div class="table-tools"><input id="customer-search" type="search" placeholder="Buscar segurado, apólice ou região"><select id="risk-filter"><option value="">Todos os riscos</option><option>ALTO</option><option>MEDIO</option><option>BAIXO</option><option>SEM_SINAL</option></select></div></header>
+      <div class="table-wrap"><table><thead><tr><th>SEGURADO</th><th>RISCO ATUAL</th><th>APÓLICE</th><th>VALOR SEGURADO</th><th>PERDA EM ANÁLISE</th><th>TELEMETRIA</th><th></th></tr></thead><tbody id="customer-rows"></tbody></table></div>
+    </section>
+
+    <section class="claims-section" id="sinistros">
+      <header class="section-head"><div><span class="section-kicker">TRIAGEM PREVENTIVA</span><h2>Sinistros e possíveis eventos</h2><p>Indícios de telemetria são sinais para investigação — não confirmação de sinistro ou cobertura.</p></div><span id="claim-total" class="count-pill">— eventos</span></header>
+      <div id="claim-list" class="claim-grid"></div>
+    </section>
+
+    <section class="governance-strip" id="governanca"><span class="governance-icon">✓</span><div><strong>Decisão humana preservada</strong><p>O score determinístico prioriza a carteira. A explicação por IA é consultiva, versionada e registrada para auditoria.</p></div><a href="/api/safety-logs?deviceId=__system__">VER REGISTROS TÉCNICOS →</a></section>
+  </main>
+
+  <dialog id="customer-dialog"><button class="dialog-close" type="button" aria-label="Fechar">×</button><div id="customer-detail"></div></dialog>
+  <div id="page-error" class="page-error" hidden></div>
+  <script src="/sompo.js"></script>
+</body>
+</html>
