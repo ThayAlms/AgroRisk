@@ -63,6 +63,12 @@ O painel apresenta:
 - status da conexão e histórico de telemetria;
 - exportação de relatório CSV.
 
+### Gestão Kanban da frota
+
+A rota `/frota.html` é a entrada do gestor e organiza automaticamente os equipamentos nas colunas **Risco alto**, **Risco médio**, **Risco baixo** e **Sem sinal**. Dentro de cada coluna, os maiores scores aparecem primeiro. O gestor pode buscar por máquina, operador, fazenda ou motivo, filtrar a frota e cadastrar os dados operacionais de cada equipamento.
+
+O botão **Ver detalhes** abre o dashboard de telemetria com o `deviceId` selecionado. As regras JavaScript geram `risk.score`, `risk.level`, fatores explicáveis e alertas usando os mesmos limites de classificação do MVP Python.
+
 Quando o GPS físico ainda não possui posição válida, o navegador pode fornecer temporariamente a localização do computador. As zonas sugeridas pelo OpenStreetMap precisam ser confirmadas pelo operador antes de participarem dos alertas.
 
 ## Executar o MVP Python

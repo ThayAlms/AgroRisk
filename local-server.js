@@ -4,7 +4,9 @@ const path = require('node:path');
 const { URL } = require('node:url');
 const { SerialPort } = require('serialport');
 const { ReadlineParser } = require('@serialport/parser-readline');
-const { calculateStability } = require('./lib/risk');
+const { calculateStability, calculateOperationalRisk } = require('./lib/risk');
+const { prepareFleetMachine, sortFleet, summarizeFleet } = require('./lib/fleet');
+const { generateExplanation } = require('./lib/explanation');
 
 const WEB_PORT = Number(process.env.PORT || 3000);
 const SERIAL_BAUD = Number(process.env.SERIAL_BAUD || 115200);
@@ -13,6 +15,7 @@ const DATA_DIR = path.join(__dirname, 'data');
 const HISTORY_FILE = path.join(DATA_DIR, 'measurements.ndjson');
 const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
 const SAFETY_LOG_FILE = path.join(DATA_DIR, 'safety-logs.ndjson');
+const MACHINES_FILE = path.join(DATA_DIR, 'machines.json');
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
@@ -28,6 +31,7 @@ let latest = null;
 let history = loadHistory(1000);
 let notebookLocation = null;
 let safetyLogs = loadLines(SAFETY_LOG_FILE, 500);
+let machines = loadJson(MACHINES_FILE, {});
 let serialPortHandle = null;
 let activeDangerLevel = 'safe';
 let dangerRefreshInProgress = false;
@@ -246,6 +250,7 @@ function enrich(reading) {
     outsideGeofence: reading.geofence.inside === false,
     dangerZone: ['warning', 'critical'].includes(reading.danger.level),
   };
+  reading.risk = calculateOperationalRisk(reading);
   return reading;
 }
 
@@ -443,7 +448,7 @@ function exportCsv(response) {
 }
 
 function serveStatic(response, pathname) {
-  const requested = pathname === '/' ? 'sompo-agro-risk.html' : pathname.slice(1);
+  const requested = pathname === '/' ? 'frota.html' : pathname.slice(1);
   const file = path.resolve(PUBLIC_DIR, requested);
   if (!file.startsWith(`${path.resolve(PUBLIC_DIR)}${path.sep}`) && file !== path.join(PUBLIC_DIR, 'index.html')) {
     return sendJson(response, 403, { error: 'Acesso negado' });
@@ -459,6 +464,45 @@ function serveStatic(response, pathname) {
 const server = http.createServer(async (request, response) => {
   const url = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
   try {
+    if (request.method === 'GET' && url.pathname === '/api/fleet') {
+      const latestByDevice = new Map();
+      for (const reading of history) latestByDevice.set(reading.deviceId || 'colheitadeira-01', reading);
+      if (latest) latestByDevice.set(latest.deviceId || 'colheitadeira-01', latest);
+      const ids = new Set([...Object.keys(machines), ...latestByDevice.keys()]);
+      const fleet = sortFleet([...ids].map((deviceId) => {
+        const metadata = machines[deviceId] || {};
+        const reading = latestByDevice.get(deviceId) || null;
+        return prepareFleetMachine({
+          deviceId, name: metadata.name || deviceId, type: metadata.type || 'Máquina agrícola',
+          model: metadata.model || '', farmName: metadata.farmName || '',
+          currentOperator: metadata.currentOperator || '', notes: metadata.notes || '',
+          active: metadata.active !== false, latest: reading,
+          lastSeenAt: reading?.timestamp || null,
+        });
+      }).filter((machine) => machine.active));
+      return sendJson(response, 200, { summary: summarizeFleet(fleet), machines: fleet, generatedAt: new Date().toISOString() });
+    }
+    if (request.method === 'GET' && url.pathname === '/api/analysis') {
+      const deviceId = String(url.searchParams.get('deviceId') || 'colheitadeira-01').slice(0, 80);
+      const deviceHistory = history.filter((reading) => (reading.deviceId || 'colheitadeira-01') === deviceId).slice(-30);
+      const current = deviceHistory.at(-1) || ((latest?.deviceId || 'colheitadeira-01') === deviceId ? latest : null);
+      const metadata = machines[deviceId] || { deviceId, name: deviceId };
+      return sendJson(response, 200, generateExplanation(current, deviceHistory, metadata));
+    }
+    if (request.method === 'PUT' && url.pathname === '/api/machines') {
+      const body = await readBody(request);
+      const deviceId = String(body.deviceId || '').trim().slice(0, 80);
+      if (!deviceId || !/^[a-zA-Z0-9._:-]+$/.test(deviceId)) return sendJson(response, 400, { error: 'Use um identificador sem espaços, como colheitadeira-07' });
+      const name = String(body.name || '').trim().slice(0, 100);
+      if (!name) return sendJson(response, 400, { error: 'O nome da máquina é obrigatório' });
+      machines[deviceId] = {
+        deviceId, name, type: String(body.type || 'Máquina agrícola').trim().slice(0, 80),
+        model: String(body.model || '').trim().slice(0, 100), farmName: String(body.farmName || '').trim().slice(0, 120),
+        currentOperator: String(body.currentOperator || '').trim().slice(0, 120), notes: String(body.notes || '').trim().slice(0, 1000), active: true,
+      };
+      fs.writeFileSync(MACHINES_FILE, JSON.stringify(machines, null, 2));
+      return sendJson(response, 200, machines[deviceId]);
+    }
     if (request.method === 'GET' && url.pathname === '/api/status') {
       return sendJson(response, 200, { serial: serialStatus, latest, config, notebookLocation });
     }

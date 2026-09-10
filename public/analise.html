@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Análise explicável da telemetria AgroRisk para corretagem, subscrição e sinistros">
+  <title>Análise Explicável | Sompo Agro Risk</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/analise.css">
+</head>
+<body>
+  <div class="utility"><div class="utility-inner"><span>INTELIGÊNCIA DE RISCO EXPLICÁVEL</span><span id="generated-at">Carregando análise...</span></div></div>
+  <header class="main-header"><nav class="main-nav" aria-label="Navegação principal"><img class="logo" src="/sompo-logo.png" alt="Sompo"><div class="navlinks"><a href="/frota.html">Gestão da Frota</a><a class="active" href="/analise.html">Análise Explicável</a><a id="telemetry-link" href="/sompo-agro-risk.html">Monitoramento</a><a id="mapping-link" href="/mapeamento-riscos.html">Mapeamento de Riscos</a></div></nav></header>
+
+  <main class="page">
+    <header class="page-head"><div><span class="eyebrow">SEGUNDA CAMADA DE ANÁLISE</span><h1>Contexto para decisão humana</h1><p>O score auditável permanece intacto; esta camada traduz os sinais para cada área de negócio.</p></div><div class="selector"><label for="machine-select">EQUIPAMENTO</label><select id="machine-select"><option>Carregando frota...</option></select></div></header>
+
+    <section class="guardrail"><span class="guardrail-icon">✓</span><div><strong>Separação entre cálculo e interpretação</strong><p>A camada 1 calcula o risco por regras rastreáveis. A camada 2 apenas explica o resultado e nunca altera score, nível ou evidências.</p></div><span class="version" id="analysis-version">—</span></section>
+    <div id="analysis-error" class="error" hidden></div>
+
+    <section class="overview">
+      <article class="score-card card">
+        <div class="card-title"><span>SCORE AUDITÁVEL</span><span id="risk-level" class="level">—</span></div>
+        <div id="score-ring" class="score-ring"><div><strong id="risk-score">—</strong><small>/ 100</small></div></div>
+        <h2 id="machine-name">Equipamento</h2><p id="machine-meta">Aguardando dados</p>
+        <div class="mini-stats"><div><span>RECORRÊNCIA</span><b id="attention-count">—</b></div><div><span>TENDÊNCIA</span><b id="risk-direction">—</b></div><div><span>COMPLETUDE</span><b id="data-quality">—</b></div></div>
+      </article>
+
+      <article class="narrative-card card">
+        <div class="audience-tabs" role="tablist" aria-label="Público da análise">
+          <button class="active" type="button" role="tab" aria-selected="true" data-audience="broker">CORRETOR</button>
+          <button type="button" role="tab" aria-selected="false" data-audience="underwriter">SUBSCRITOR</button>
+          <button type="button" role="tab" aria-selected="false" data-audience="claims">ANALISTA DE SINISTROS</button>
+        </div>
+        <div class="narrative-body"><span class="audience-label" id="audience-label">LEITURA PARA O CORRETOR</span><h2 id="narrative-headline">Preparando explicação...</h2><p id="narrative-summary"></p><h3>PONTOS DE ATENÇÃO</h3><ul id="narrative-actions"></ul><div class="narrative-actions"><button id="copy-analysis" class="secondary" type="button">COPIAR RESUMO</button><button id="download-analysis" class="secondary" type="button">BAIXAR JSON</button></div></div>
+      </article>
+    </section>
+
+    <section class="evidence-grid">
+      <article class="card evidence-card"><div class="section-head"><div><span class="eyebrow">RASTREABILIDADE</span><h2>Fatores que compõem o score</h2></div><span id="factor-total">0 pontos</span></div><div id="factor-list" class="factor-list"></div></article>
+      <article class="card telemetry-card"><div class="section-head"><div><span class="eyebrow">LEITURA ORIGINAL</span><h2>Snapshot da telemetria</h2></div><span id="telemetry-time">—</span></div><div id="telemetry-grid" class="telemetry-grid"></div><div class="data-gaps"><strong>Lacunas identificadas</strong><div id="missing-data"></div></div></article>
+    </section>
+
+    <footer class="disclaimer"><strong>Limite de uso</strong><p id="disclaimer-text">Esta narrativa é apoio à análise humana e não substitui critérios técnicos, contratuais ou regulatórios.</p></footer>
+  </main>
+  <script src="/analise.js"></script>
+</body>
+</html>

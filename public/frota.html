@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Gestão Kanban da frota agrícola no Sompo Agro Risk">
+  <title>Gestão da Frota | Sompo Agro Risk</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/frota.css">
+</head>
+<body>
+  <div class="utility"><div class="utility-inner"><span>GESTÃO DE RISCO OPERACIONAL</span><span id="last-sync">Atualizando frota...</span></div></div>
+  <header class="main-header">
+    <nav class="main-nav" aria-label="Navegação principal">
+      <img class="logo" src="/sompo-logo.png" alt="Sompo">
+      <div class="navlinks">
+        <a class="active" href="/frota.html">Gestão da Frota</a>
+        <a href="/analise.html">Análise Explicável</a>
+        <a href="/sompo-agro-risk.html">Monitoramento</a>
+        <a href="/mapeamento-riscos.html">Mapeamento de Riscos</a>
+      </div>
+    </nav>
+  </header>
+
+  <main class="page">
+    <header class="page-head">
+      <div><span class="eyebrow">CENTRAL DO GESTOR</span><h1>Prioridades da frota</h1><p>Equipamentos com maior exposição aparecem primeiro para orientar a ação da equipe.</p></div>
+      <button id="add-machine" class="primary" type="button"><span>＋</span> CADASTRAR MÁQUINA</button>
+    </header>
+
+    <section class="summary" aria-label="Resumo da frota">
+      <article class="summary-card total"><span>Total monitorado</span><strong id="summary-total">—</strong><small>equipamentos ativos</small></article>
+      <article class="summary-card high"><span>Risco alto</span><strong id="summary-high">—</strong><small>ação imediata</small></article>
+      <article class="summary-card medium"><span>Risco médio</span><strong id="summary-medium">—</strong><small>exigem atenção</small></article>
+      <article class="summary-card offline"><span>Sem sinal</span><strong id="summary-offline">—</strong><small>verificar conexão</small></article>
+    </section>
+
+    <section class="toolbar" aria-label="Filtros da frota">
+      <label class="search"><span>⌕</span><input id="fleet-search" type="search" placeholder="Buscar máquina, operador, fazenda ou motivo" autocomplete="off"></label>
+      <label><span>TIPO</span><select id="type-filter"><option value="">Todos os tipos</option></select></label>
+      <label><span>OPERADOR</span><select id="operator-filter"><option value="">Todos os operadores</option></select></label>
+      <button id="refresh-fleet" class="secondary" type="button">ATUALIZAR</button>
+    </section>
+
+    <div id="fleet-error" class="notice error" hidden></div>
+    <section class="kanban" aria-label="Kanban de risco da frota">
+      <section class="kanban-column high-column" data-level="ALTO">
+        <header><div><i></i><h2>Risco alto</h2></div><span id="count-high">0</span></header>
+        <p class="column-help">Intervenção imediata</p><div class="card-list" id="list-high"></div>
+      </section>
+      <section class="kanban-column medium-column" data-level="MEDIO">
+        <header><div><i></i><h2>Risco médio</h2></div><span id="count-medium">0</span></header>
+        <p class="column-help">Acompanhar e corrigir</p><div class="card-list" id="list-medium"></div>
+      </section>
+      <section class="kanban-column low-column" data-level="BAIXO">
+        <header><div><i></i><h2>Risco baixo</h2></div><span id="count-low">0</span></header>
+        <p class="column-help">Operação dentro do esperado</p><div class="card-list" id="list-low"></div>
+      </section>
+      <section class="kanban-column offline-column" data-level="SEM_SINAL">
+        <header><div><i></i><h2>Sem sinal</h2></div><span id="count-offline">0</span></header>
+        <p class="column-help">Telemetria indisponível</p><div class="card-list" id="list-offline"></div>
+      </section>
+    </section>
+  </main>
+
+  <dialog id="machine-dialog">
+    <form id="machine-form">
+      <header><div><span class="eyebrow">CADASTRO OPERACIONAL</span><h2 id="dialog-title">Editar máquina</h2></div><button class="dialog-close" type="button" aria-label="Fechar">×</button></header>
+      <div class="form-grid">
+        <label><span>IDENTIFICADOR DO DISPOSITIVO *</span><input id="machine-id" name="deviceId" maxlength="80" required placeholder="ex.: colheitadeira-07"></label>
+        <label><span>NOME DA MÁQUINA *</span><input id="machine-name" name="name" maxlength="100" required placeholder="ex.: Colheitadeira Norte 07"></label>
+        <label><span>TIPO</span><input id="machine-type" name="type" maxlength="80" placeholder="Colheitadeira, trator, pulverizador..."></label>
+        <label><span>MODELO</span><input id="machine-model" name="model" maxlength="100" placeholder="Marca e modelo"></label>
+        <label><span>FAZENDA / UNIDADE</span><input id="machine-farm" name="farmName" maxlength="120" placeholder="ex.: Fazenda Santa Helena"></label>
+        <label><span>OPERADOR ATUAL</span><input id="machine-operator" name="currentOperator" maxlength="120" placeholder="Quem está dirigindo"></label>
+        <label class="wide"><span>OBSERVAÇÕES DO GESTOR</span><textarea id="machine-notes" name="notes" maxlength="1000" rows="4" placeholder="Registre contexto, ação tomada ou orientação para a equipe"></textarea></label>
+      </div>
+      <div id="form-feedback" class="form-feedback" role="status"></div>
+      <footer><button class="secondary dialog-cancel" type="button">CANCELAR</button><button class="primary" type="submit">SALVAR MÁQUINA</button></footer>
+    </form>
+  </dialog>
+
+  <script src="/frota.js"></script>
+</body>
+</html>

@@ -4,7 +4,7 @@
   "private": true,
   "description": "Dashboard em tempo real para os sensores da colheitadeira",
   "scripts": {
-    "test": "node scripts/test-hybrid.js",
+    "test": "node scripts/test-hybrid.js && node scripts/test-risk-fleet.js && node scripts/test-explanation.js",
     "start": "node local-server.js",
     "dev": "node --watch local-server.js",
     "gateway": "powershell -NoProfile -ExecutionPolicy Bypass -File gateway/start-gateway.ps1",

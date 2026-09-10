@@ -4,6 +4,13 @@
   const finite = Number.isFinite;
   const fmt = (value, digits = 1) => finite(value) ? Number(value).toFixed(digits) : '—';
   const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
+  const queryParams = new URLSearchParams(location.search);
+  const deviceId = queryParams.get('deviceId') || 'colheitadeira-01';
+  const deviceApi = (path) => {
+    const url = new URL(path, location.origin);
+    url.searchParams.set('deviceId', deviceId);
+    return `${url.pathname}${url.search}`;
+  };
   let config;
   let map;
   let marker;
@@ -16,7 +23,7 @@
   let lastReceivedAt;
   let recent = [];
   let lastReading;
-  const demoTilt = new URLSearchParams(location.search).get('demo') === '1';
+  const demoTilt = queryParams.get('demo') === '1';
   const cloudMode = location.hostname !== 'localhost' && location.hostname !== '127.0.0.1';
   let lastCloudTimestamp;
   let locationWatchId;
@@ -148,7 +155,7 @@
   }
 
   async function reloadDangerZones() {
-    const state = await fetch('/api/danger-zones', { cache: 'no-store' }).then((response) => response.json());
+    const state = await fetch(deviceApi('/api/danger-zones'), { cache: 'no-store' }).then((response) => response.json());
     renderDangerZones(state);
   }
 
@@ -157,7 +164,7 @@
     if (!zone) return;
     set('risk-feedback', `Confirmando ${zone.name}...`);
     const payload = { ...zone, source: zone.source === 'manual' ? 'manual' : 'openstreetmap-confirmed' };
-    const response = await fetch('/api/danger-zones', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ zone: payload }) });
+    const response = await fetch(deviceApi('/api/danger-zones'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ zone: payload }) });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'Falha ao confirmar área');
     discoveryCandidates = discoveryCandidates.filter((item) => item.id !== zoneId);
@@ -170,7 +177,7 @@
     for (let index = 0; index < zones.length; index += 8) {
       const batch = zones.slice(index, index + 8);
       const results = await Promise.all(batch.map(async (zone) => {
-        const response = await fetch('/api/danger-zones', {
+        const response = await fetch(deviceApi('/api/danger-zones'), {
           method: 'POST', headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ zone: { ...zone, warningMeters: 10, criticalMeters: 0, source: 'openstreetmap-confirmed' } }),
         });
@@ -182,7 +189,7 @@
   }
 
   async function removeZone(zoneId) {
-    const response = await fetch(`/api/danger-zones?id=${encodeURIComponent(zoneId)}`, { method: 'DELETE' });
+    const response = await fetch(deviceApi(`/api/danger-zones?id=${encodeURIComponent(zoneId)}`), { method: 'DELETE' });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'Falha ao remover área');
     await reloadDangerZones();
@@ -411,7 +418,7 @@
 
   async function saveFence() {
     const center = mappingPage ? { lat: FIAP_REGION.latitude, lng: FIAP_REGION.longitude } : pendingCenter || { lat: config.geofence.latitude, lng: config.geofence.longitude };
-    const response = await fetch('/api/config', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+    const response = await fetch(deviceApi('/api/config'), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
       ...config, geofence: { latitude: center.lat ?? null, longitude: center.lng ?? null, radiusMeters: Number(el('radius').value) },
     }) });
     const result = await response.json();
@@ -421,11 +428,14 @@
   }
 
   async function start() {
+    document.querySelectorAll('a[href="/mapeamento-riscos.html"]').forEach((link) => { link.href = deviceApi('/mapeamento-riscos.html'); });
+    document.querySelectorAll('a[href="/sompo-agro-risk.html"]').forEach((link) => { link.href = deviceApi('/sompo-agro-risk.html'); });
+    document.querySelectorAll('a[href^="/api/export.csv"]').forEach((link) => { link.href = deviceApi('/api/export.csv'); });
     const [status, history, dangerZones, logs] = await Promise.all([
-      fetch('/api/status', { cache: 'no-store' }).then((r) => r.json()),
-      fetch('/api/measurements?limit=20', { cache: 'no-store' }).then((r) => r.json()),
-      fetch('/api/danger-zones', { cache: 'no-store' }).then((r) => r.json()),
-      fetch('/api/safety-logs?limit=30', { cache: 'no-store' }).then((r) => r.json()),
+      fetch(deviceApi('/api/status'), { cache: 'no-store' }).then((r) => r.json()),
+      fetch(deviceApi('/api/measurements?limit=20'), { cache: 'no-store' }).then((r) => r.json()),
+      fetch(deviceApi('/api/danger-zones'), { cache: 'no-store' }).then((r) => r.json()),
+      fetch(deviceApi('/api/safety-logs?limit=30'), { cache: 'no-store' }).then((r) => r.json()),
     ]);
     recent = history; applyConfig(status.config); setConnection(status.serial); renderHistory(); renderTrend();
     renderDangerZones(dangerZones); renderSafetyLogs(logs);
@@ -434,7 +444,7 @@
       lastCloudTimestamp = status.latest?.timestamp;
       setInterval(async () => {
         try {
-          const current = await fetch('/api/status', { cache: 'no-store' }).then((response) => response.json());
+          const current = await fetch(deviceApi('/api/status'), { cache: 'no-store' }).then((response) => response.json());
           setConnection(current.serial);
           if (current.latest && current.latest.timestamp !== lastCloudTimestamp) {
             lastCloudTimestamp = current.latest.timestamp; updateReading(current.latest, true);
@@ -443,13 +453,13 @@
       }, 500);
       setInterval(async () => {
         const [zones, freshLogs] = await Promise.all([
-          fetch('/api/danger-zones', { cache: 'no-store' }).then((response) => response.json()),
-          fetch('/api/safety-logs?limit=30', { cache: 'no-store' }).then((response) => response.json()),
+          fetch(deviceApi('/api/danger-zones'), { cache: 'no-store' }).then((response) => response.json()),
+          fetch(deviceApi('/api/safety-logs?limit=30'), { cache: 'no-store' }).then((response) => response.json()),
         ]);
         renderDangerZones(zones); logs.splice(0, logs.length, ...freshLogs); renderSafetyLogs(logs);
       }, 10000);
     } else {
-      const events = new EventSource(`/events?t=${Date.now()}`);
+      const events = new EventSource(deviceApi(`/events?t=${Date.now()}`));
       events.addEventListener('telemetry', ({ data }) => updateReading(JSON.parse(data), false));
       events.addEventListener('measurement', ({ data }) => updateReading(JSON.parse(data), true));
       events.addEventListener('serial', ({ data }) => setConnection(JSON.parse(data)));
@@ -466,7 +476,7 @@
     locationRequestInFlight = true;
     const payload = { ...positionPayload, timestamp: new Date().toISOString() };
     try {
-      const response = await fetch('/api/location', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const response = await fetch(deviceApi('/api/location'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || `Falha HTTP ${response.status}`);
       browserLocation = payload;

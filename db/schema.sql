@@ -6,6 +6,19 @@ CREATE TABLE IF NOT EXISTS telemetry (
 );
 CREATE INDEX IF NOT EXISTS telemetry_device_time_idx ON telemetry (device_id, recorded_at DESC);
 
+CREATE TABLE IF NOT EXISTS machines (
+  device_id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  machine_type TEXT NOT NULL DEFAULT 'Máquina agrícola',
+  model TEXT,
+  farm_name TEXT,
+  current_operator TEXT,
+  notes TEXT,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS device_configs (
   device_id TEXT PRIMARY KEY,
   payload JSONB NOT NULL,
