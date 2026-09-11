@@ -140,3 +140,34 @@ CREATE TABLE IF NOT EXISTS customer_risk_snapshots (
   reason TEXT NOT NULL,
   evaluated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS event_labels (
+  id BIGSERIAL PRIMARY KEY,
+  device_id TEXT NOT NULL,
+  customer_id TEXT NOT NULL REFERENCES insurance_customers(id),
+  event_at TIMESTAMPTZ NOT NULL,
+  event_type TEXT NOT NULL,
+  outcome TEXT NOT NULL,
+  severity TEXT NOT NULL,
+  damage_amount NUMERIC(14,2) NOT NULL DEFAULT 0,
+  notes TEXT,
+  source TEXT NOT NULL DEFAULT 'human',
+  verification_status TEXT NOT NULL DEFAULT 'pending',
+  reported_by TEXT NOT NULL,
+  verified_by TEXT,
+  verified_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS event_labels_device_time_idx ON event_labels (device_id, event_at DESC);
+CREATE INDEX IF NOT EXISTS event_labels_verification_idx ON event_labels (verification_status, source, event_at DESC);
+
+CREATE TABLE IF NOT EXISTS weather_context (
+  device_id TEXT NOT NULL,
+  observed_date DATE NOT NULL,
+  latitude DOUBLE PRECISION NOT NULL,
+  longitude DOUBLE PRECISION NOT NULL,
+  source TEXT NOT NULL,
+  payload JSONB NOT NULL,
+  fetched_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (device_id, observed_date, source)
+);

@@ -11,7 +11,7 @@
     if (requiredRole && user.role !== requiredRole) return location.replace(user.role === 'sompo' ? '/sompo.html' : '/frota.html');
     document.documentElement.classList.remove('auth-pending');
     window.agroRiskUser = user;
-    document.addEventListener('DOMContentLoaded', () => {
+    const showAccount = () => {
       document.querySelectorAll('[data-user-name]').forEach((element) => { element.textContent = user.name; });
       document.querySelectorAll('[data-user-role]').forEach((element) => { element.textContent = user.role === 'sompo' ? 'Equipe Sompo' : 'Produtor'; });
       if (!document.querySelector('.auth-account') && requiredRole === 'farmer') {
@@ -21,7 +21,9 @@
         account.querySelector('button').addEventListener('click', logout);
         document.body.appendChild(account);
       }
-    });
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', showAccount, { once: true });
+    else showAccount();
   }).catch(() => location.replace(`/login.html?next=${encodeURIComponent(location.pathname + location.search)}`));
 
   async function logout() {

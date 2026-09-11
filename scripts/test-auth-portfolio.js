@@ -5,6 +5,7 @@ delete process.env.DATABASE_URL;
 
 const { authenticate, setSessionCookie, readSession, publicUser } = require('../lib/auth');
 const { buildSompoPortfolio } = require('../lib/portfolio');
+const { listMachines } = require('../lib/db');
 
 function cookieResponse() {
   return { headers: {}, setHeader(name, value) { this.headers[name.toLowerCase()] = value; } };
@@ -17,6 +18,11 @@ function cookieResponse() {
   assert.equal(farmer.customerId, 'cust-farm-001');
   assert.equal(sompo.role, 'sompo');
   assert.equal(await authenticate('sompo@sompo.com', 'senha-errada'), null);
+  const farmerMachines = await listMachines(farmer.customerId);
+  const sompoMachines = await listMachines();
+  assert.equal(farmerMachines.length, 4);
+  assert.equal(sompoMachines.length, 7);
+  assert.ok(farmerMachines.every((machine) => machine.customerId === farmer.customerId));
 
   const response = cookieResponse();
   setSessionCookie({ headers: {} }, response, farmer);
@@ -33,5 +39,6 @@ function cookieResponse() {
   assert.ok(portfolio.summary.exposure > 0);
   assert.equal(portfolio.demoData, true);
   assert.equal(portfolio.contractors[0].risk.level, 'ALTO');
+  assert.ok(portfolio.contractors.every((customer) => customer.machineCount >= 1));
   console.log('Authentication and Sompo portfolio tests passed');
 })().catch((error) => { console.error(error); process.exitCode = 1; });

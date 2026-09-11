@@ -3,6 +3,8 @@ const handlers = Object.freeze({
   session: require('../handlers/session'),
   logout: require('../handlers/logout'),
   'sompo-portfolio': require('../handlers/sompo-portfolio'),
+  events: require('../handlers/events'),
+  'model-readiness': require('../handlers/model-readiness'),
   analysis: require('../handlers/analysis'),
   commands: require('../handlers/commands'),
   config: require('../handlers/config'),
@@ -43,7 +45,7 @@ module.exports = async (request, response) => {
     const user = readSession(request);
     if (!user) return reject(response, 401, 'Autenticação necessária');
     request.user = user;
-    if (route === 'sompo-portfolio' && user.role !== 'sompo') return reject(response, 403, 'Acesso exclusivo Sompo');
+    if (['sompo-portfolio', 'model-readiness'].includes(route) && user.role !== 'sompo') return reject(response, 403, 'Acesso exclusivo Sompo');
 
     if (user.role === 'farmer' && DEVICE_SCOPED_ROUTES.has(route)) {
       const { canAccessDevice } = require('../lib/db');

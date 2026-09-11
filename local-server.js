@@ -10,6 +10,7 @@ const { generateExplanation } = require('./lib/explanation');
 const { getActiveModel, getLatestModel } = require('./lib/db');
 const { authenticate, readSession, setSessionCookie, clearSessionCookie, publicUser } = require('./lib/auth');
 const { buildSompoPortfolio } = require('./lib/portfolio');
+const { ANOMALY_TARGET, detectAnomaly } = require('./lib/anomaly-model');
 
 const WEB_PORT = Number(process.env.PORT || 3000);
 const SERIAL_BAUD = Number(process.env.SERIAL_BAUD || 115200);
@@ -511,9 +512,11 @@ const server = http.createServer(async (request, response) => {
       const deviceHistory = history.filter((reading) => (reading.deviceId || 'colheitadeira-01') === deviceId).slice(-30);
       const current = deviceHistory.at(-1) || ((latest?.deviceId || 'colheitadeira-01') === deviceId ? latest : null);
       const metadata = machines[deviceId] || { deviceId, name: deviceId };
-      const model = await getActiveModel();
-      const latestModel = await getLatestModel();
+      const model = await getActiveModel('risco ALTO nas próximas 5 leituras');
+      const latestModel = await getLatestModel('risco ALTO nas próximas 5 leituras');
+      const anomalyModel = await getActiveModel(ANOMALY_TARGET);
       const analysis = generateExplanation(current, deviceHistory, metadata, model);
+      analysis.anomaly = current && anomalyModel ? detectAnomaly(current, deviceId, anomalyModel) : { available: false, reason: 'Detector de anomalias ainda não treinado', advisoryOnly: true };
       analysis.governance = latestModel ? { latestModelVersion: latestModel.version, status: latestModel.status, algorithm: latestModel.algorithm, datasetHash: latestModel.datasetHash, datasetRows: latestModel.datasetRows, trainingStartedAt: latestModel.trainingStartedAt, trainingEndedAt: latestModel.trainingEndedAt, validationMetrics: latestModel.validationMetrics } : { latestModelVersion: null, status: 'not-trained' };
       return sendJson(response, 200, analysis);
     }

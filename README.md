@@ -88,6 +88,18 @@ npm run train:model
 
 Consulte [Governança da camada analítica](docs/GOVERNANCA_MODELO.md) para fronteira de decisão, critérios de ativação e trilha em `safety_logs`.
 
+### Aprendizado com dados reais e serviços gratuitos
+
+O projeto também inclui um detector de anomalias treinado somente com telemetria real, coleta supervisionada de ocorrências e enriquecimento climático gratuito pela NASA POWER. Dados demonstrativos nunca entram no treinamento. O modelo de eventos permanece bloqueado até haver rótulos humanos verificados, diversidade de máquinas e métricas mínimas de validação.
+
+```powershell
+npm run enrich:weather
+npm run train:anomaly
+npm run train:event
+```
+
+Veja [Modelo de IA real e gratuito](docs/MODELO_REAL_GRATUITO.md) para arquitetura, critérios e governança.
+
 Quando o GPS físico ainda não possui posição válida, o navegador pode fornecer temporariamente a localização do computador. As zonas sugeridas pelo OpenStreetMap precisam ser confirmadas pelo operador antes de participarem dos alertas.
 
 ## Executar o MVP Python

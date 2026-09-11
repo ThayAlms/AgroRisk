@@ -10,6 +10,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/sompo.css">
+  <link rel="stylesheet" href="/sompo-ai.css">
+  <link rel="stylesheet" href="/sompo-learning.css">
   <script src="/auth-guard.js"></script>
 </head>
 <body>
@@ -22,6 +24,7 @@
       <a href="#sinistros"><i>!</i><span>Sinistros e indícios</span><b id="nav-claim-count">—</b></a>
       <span class="nav-label">INTELIGÊNCIA</span>
       <a href="#riscos"><i>⌁</i><span>Mapa de exposição</span></a>
+      <a href="#aprendizado"><i>AI</i><span>Modelos e aprendizado</span><b id="nav-label-count">—</b></a>
       <a href="#governanca"><i>✓</i><span>Governança do modelo</span></a>
     </nav>
     <div class="sidebar-note"><span>MODELO CONSULTIVO</span><strong>Regra auditável ativa</strong><p>A IA organiza evidências, mas não decide cobertura.</p></div>
@@ -44,7 +47,7 @@
     </section>
 
     <section class="decision-grid" id="riscos">
-      <article class="panel priority-panel"><header><div><span class="section-kicker">PRIORIDADE AGORA</span><h2>Onde agir primeiro</h2></div><span class="live-pill"><i></i> CARTEIRA MONITORADA</span></header><div id="priority-list" class="priority-list"></div></article>
+      <article class="panel priority-panel"><header><div><span class="section-kicker">PRIORIDADE AGORA</span><h2>Onde agir primeiro</h2></div><span class="ai-tag">✦ IA EXPLICÁVEL</span></header><div class="ai-method"><strong>O que a IA fez aqui?</strong> Cruzou score, telemetria, exposição segurada e eventos abertos para ordenar a atenção. A decisão continua humana.</div><div id="priority-list" class="priority-list"></div></article>
       <article class="panel exposure-panel"><header><div><span class="section-kicker">CONCENTRAÇÃO</span><h2>Exposição por nível de risco</h2></div></header><div id="exposure-chart" class="exposure-chart"></div><footer><span><i class="high"></i>Alto</span><span><i class="medium"></i>Médio</span><span><i class="low"></i>Baixo</span><span><i class="offline"></i>Sem sinal</span></footer></article>
       <article class="panel pulse-panel"><header><div><span class="section-kicker">SINAL DA CARTEIRA</span><h2>Índice de atenção</h2></div></header><div class="pulse-score"><div class="score-ring"><strong id="attention-score">—</strong><span>/ 100</span></div><div><strong id="attention-label">Calculando</strong><p>Combinação demonstrativa de risco, perdas estimadas e conectividade.</p></div></div><div class="pulse-row"><span>Segurados críticos</span><b id="critical-share">—</b></div><div class="pulse-row"><span>Máquinas online</span><b id="online-share">—</b></div></article>
     </section>
@@ -57,6 +60,16 @@
     <section class="claims-section" id="sinistros">
       <header class="section-head"><div><span class="section-kicker">TRIAGEM PREVENTIVA</span><h2>Sinistros e possíveis eventos</h2><p>Indícios de telemetria são sinais para investigação — não confirmação de sinistro ou cobertura.</p></div><span id="claim-total" class="count-pill">— eventos</span></header>
       <div id="claim-list" class="claim-grid"></div>
+    </section>
+
+    <section class="learning-lab" id="aprendizado">
+      <header class="section-head"><div><span class="section-kicker">IA COM EVID&Ecirc;NCIA REAL</span><h2>Laborat&oacute;rio de aprendizado da carteira</h2><p>Telemetria real alimenta o detector de anomalias. O modelo supervisionado s&oacute; &eacute; liberado com ocorr&ecirc;ncias humanas verificadas.</p></div><span class="learning-state" id="learning-state">CARREGANDO</span></header>
+      <div class="model-grid">
+        <article class="model-card"><span class="model-kind">MODELO 1 &middot; ATIVO AGORA</span><h3>Comportamento incomum</h3><p>Aprende a rotina de cada equipamento e sinaliza desvios. N&atilde;o afirma que ocorreu sinistro.</p><div class="model-version" id="anomaly-version">Ainda n&atilde;o treinado</div><div class="model-metrics" id="anomaly-metrics"></div></article>
+        <article class="model-card supervised"><span class="model-kind">MODELO 2 &middot; SOB CONTROLE</span><h3>Evento confirmado</h3><p>S&oacute; treina quando a base atinge diversidade e quantidade m&iacute;nimas. At&eacute; l&aacute;, a regra determin&iacute;stica permanece soberana.</p><div class="readiness-bars" id="readiness-bars"></div><div class="model-version" id="event-model-version">Aguardando base validada</div></article>
+        <article class="model-card guardrail"><span class="model-kind">FRONTEIRA DE DECIS&Atilde;O</span><h3>O que a IA n&atilde;o decide</h3><ul><li>N&atilde;o altera o score audit&aacute;vel.</li><li>N&atilde;o confirma sinistro nem cobertura.</li><li>N&atilde;o treina com os cen&aacute;rios fict&iacute;cios.</li><li>Toda vers&atilde;o e base ficam registradas.</li></ul></article>
+      </div>
+      <article class="label-queue"><header><div><span class="section-kicker">SUPERVIS&Atilde;O HUMANA</span><h3>Ocorr&ecirc;ncias aguardando valida&ccedil;&atilde;o</h3></div><span id="label-summary">—</span></header><div id="label-list" class="label-list"><p class="label-empty">Carregando ocorr&ecirc;ncias...</p></div></article>
     </section>
 
     <section class="governance-strip" id="governanca"><span class="governance-icon">✓</span><div><strong>Decisão humana preservada</strong><p>O score determinístico prioriza a carteira. A explicação por IA é consultiva, versionada e registrada para auditoria.</p></div><a href="/api/safety-logs?deviceId=__system__">VER REGISTROS TÉCNICOS →</a></section>

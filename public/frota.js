@@ -27,13 +27,23 @@
     const score = Number.isFinite(machine.risk.score) ? `<b>${machine.risk.score}</b> / 100` : '<b>—</b> sem dados';
     const operator = machine.currentOperator || 'Não atribuído';
     const farm = machine.farmName || 'Unidade não informada';
+    const isDemo = machine.latest?.demo === true || machine.deviceId.includes('-demo-');
+    const scenario = machine.latest?.demoScenario || machine.notes || factor;
+    const aiSummary = machine.risk.level === 'ALTO'
+      ? `A combinação dos sinais indica prioridade imediata: ${scenario}. Interromper a operação e validar em campo.`
+      : machine.risk.level === 'MEDIO'
+        ? `Os dados indicam exposição moderada: ${scenario}. Acompanhar as próximas leituras e corrigir o fator dominante.`
+        : machine.risk.level === 'BAIXO'
+          ? `A telemetria permanece dentro do esperado. ${scenario}. Manter a rotina preventiva.`
+          : `A IA não conclui condição segura sem dados. ${scenario}. Verificar energia, gateway e comunicação.`;
     return `<article class="machine-card ${config.css}" data-machine="${escapeHtml(machine.deviceId)}">
-      <div class="machine-head"><div><h3>${escapeHtml(machine.name)}</h3><small>${escapeHtml(machine.type)}${machine.model ? ` · ${escapeHtml(machine.model)}` : ''}</small></div><span class="risk-score">${score}</span></div>
+      <div class="machine-head"><div>${isDemo ? '<span class="scenario-badge">CENÁRIO DEMONSTRATIVO</span>' : ''}<h3>${escapeHtml(machine.name)}</h3><small>${escapeHtml(machine.type)}${machine.model ? ` · ${escapeHtml(machine.model)}` : ''}</small></div><span class="risk-score">${score}</span></div>
       <div class="machine-meta"><span>OPERADOR<b>${escapeHtml(operator)}</b></span><span>FAZENDA / UNIDADE<b>${escapeHtml(farm)}</b></span></div>
       <div class="reason"><strong>Motivo:</strong> ${escapeHtml(factor)}</div>
+      ${isDemo ? `<div class="ai-callout"><span>✦ SÍNTESE DA IA</span><p>${escapeHtml(aiSummary)}</p><small>Apoio à decisão · não altera o score</small></div>` : ''}
       ${machine.notes ? `<p class="machine-notes">${escapeHtml(machine.notes)}</p>` : ''}
       <div class="machine-meta"><span>ÚLTIMA TELEMETRIA<b>${escapeHtml(timeAgo(machine.lastSeenAt))}</b></span><span>DISPOSITIVO<b>${escapeHtml(machine.deviceId)}</b></span></div>
-      <div class="machine-actions"><a href="/analise.html?deviceId=${encodeURIComponent(machine.deviceId)}">ANÁLISE</a><a href="/sompo-agro-risk.html?deviceId=${encodeURIComponent(machine.deviceId)}">TELEMETRIA</a><button type="button" data-edit="${escapeHtml(machine.deviceId)}">EDITAR</button></div>
+      <div class="machine-actions"><a href="/analise.html?deviceId=${encodeURIComponent(machine.deviceId)}">RELATÓRIO IA</a><a href="/sompo-agro-risk.html?deviceId=${encodeURIComponent(machine.deviceId)}">TELEMETRIA</a><button type="button" data-edit="${escapeHtml(machine.deviceId)}">EDITAR</button></div>
     </article>`;
   }
 

@@ -10,6 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/analise.css">
+  <link rel="stylesheet" href="/analise-learning.css">
   <style>.model-signal{margin-top:15px;padding:12px;text-align:left;background:#f4f7fc;border-left:3px solid #0b5fff;border-radius:5px}.model-signal span,.model-signal small{display:block;font-size:7px;color:#69717e}.model-signal strong{display:block;font-size:11px;margin:5px 0 3px}.model-signal small{line-height:1.4}.disclaimer small{display:block;color:#8a919b;font-size:7px;margin-top:6px;word-break:break-all}</style>
   <script src="/auth-guard.js"></script>
 </head>
@@ -30,6 +31,7 @@
         <h2 id="machine-name">Equipamento</h2><p id="machine-meta">Aguardando dados</p>
         <div class="mini-stats"><div><span>RECORRÊNCIA</span><b id="attention-count">—</b></div><div><span>TENDÊNCIA</span><b id="risk-direction">—</b></div><div><span>COMPLETUDE</span><b id="data-quality">—</b></div></div>
         <div class="model-signal"><span>SINAL PREDITIVO · CONSULTIVO</span><strong id="model-prediction">Somente regra determinística</strong><small id="model-version">Nenhum modelo validado ativo</small></div>
+        <div class="model-signal anomaly-signal"><span>DETECTOR REAL DE ANOMALIAS</span><strong id="anomaly-prediction">Aguardando perfil da máquina</strong><small id="anomaly-version">Treinado somente com telemetria real</small></div>
       </article>
 
       <article class="narrative-card card">
@@ -45,6 +47,12 @@
     <section class="evidence-grid">
       <article class="card evidence-card"><div class="section-head"><div><span class="eyebrow">RASTREABILIDADE</span><h2>Fatores que compõem o score</h2></div><span id="factor-total">0 pontos</span></div><div id="factor-list" class="factor-list"></div></article>
       <article class="card telemetry-card"><div class="section-head"><div><span class="eyebrow">LEITURA ORIGINAL</span><h2>Snapshot da telemetria</h2></div><span id="telemetry-time">—</span></div><div id="telemetry-grid" class="telemetry-grid"></div><div class="data-gaps"><strong>Lacunas identificadas</strong><div id="missing-data"></div></div></article>
+    </section>
+
+    <section class="learning-grid">
+      <article class="card learning-intro"><span class="eyebrow">APRENDIZADO SUPERVISIONADO</span><h2>Ajude o modelo a aprender com o que realmente aconteceu</h2><p>O score mostra um sinal. Sua confirmação cria um rótulo humano, que será revisado pela Sompo antes de entrar no treinamento. Cenários demonstrativos nunca treinam o modelo real.</p><div class="learning-rule"><span>1</span>Produtor registra <i>→</i><span>2</span>Sompo valida <i>→</i><span>3</span>Modelo aprende</div></article>
+      <article class="card event-form-card"><form id="event-form"><div class="form-head"><div><span class="eyebrow">CONFIRMAR OCORRÊNCIA</span><h2>O que aconteceu com esta máquina?</h2></div><span class="human-badge">RÓTULO HUMANO</span></div><div class="event-fields"><label>TIPO<select name="eventType"><option value="collision">Colisão</option><option value="rollover">Tombamento</option><option value="mechanical_failure">Falha mecânica</option><option value="fire">Incêndio</option><option value="geofence">Saída da área</option><option value="sensor_failure">Falha de sensor</option><option value="other">Outro</option></select></label><label>RESULTADO<select name="outcome"><option value="near_miss">Quase acidente</option><option value="incident">Incidente com dano</option><option value="no_damage">Sem dano</option><option value="false_alarm">Falso alerta</option><option value="maintenance">Manutenção preventiva</option></select></label><label>SEVERIDADE<select name="severity"><option value="medium">Média</option><option value="high">Alta</option><option value="low">Baixa</option></select></label><label>DATA E HORA<input id="event-at" name="eventAt" type="datetime-local" required></label><label>VALOR ESTIMADO DO DANO<input name="damageAmount" type="number" min="0" step="100" placeholder="R$ 0"></label><label class="wide">OBSERVAÇÕES<input name="notes" maxlength="1500" placeholder="Descreva o que foi verificado em campo"></label></div><div class="event-submit"><span id="event-feedback"></span><button type="submit">ENVIAR PARA VALIDAÇÃO SOMPO</button></div></form></article>
+      <article class="card event-history"><div class="section-head"><div><span class="eyebrow">EVIDÊNCIA HUMANA</span><h2>Ocorrências registradas</h2></div></div><div id="event-history"><p class="empty-event">Nenhuma ocorrência registrada.</p></div></article>
     </section>
 
     <footer class="disclaimer"><strong>Limite de uso</strong><div><p id="disclaimer-text">Esta narrativa é apoio à análise humana e não substitui critérios técnicos, contratuais ou regulatórios.</p><small id="governance-meta"></small></div></footer>

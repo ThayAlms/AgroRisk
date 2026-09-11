@@ -5,6 +5,8 @@
   const percent = (value) => `${Number(value || 0).toFixed(1).replace('.', ',')}%`;
   const statusNames = { triage: 'TRIAGEM', investigating: 'EM INVESTIGAÇÃO', monitoring: 'MONITORAMENTO', open: 'ABERTO' };
   const levelNames = { ALTO: 'ALTO', MEDIO: 'MÉDIO', BAIXO: 'BAIXO', SEM_SINAL: 'SEM SINAL' };
+  const eventNames = { collision: 'Colisão', rollover: 'Tombamento', mechanical_failure: 'Falha mecânica', fire: 'Incêndio', geofence: 'Saída de área', sensor_failure: 'Falha de sensor', other: 'Outro evento' };
+  const outcomeNames = { incident: 'Sinistro ocorrido', near_miss: 'Quase acidente', no_damage: 'Sem dano', false_alarm: 'Alarme falso', maintenance: 'Manutenção' };
   let portfolio;
 
   function renderKpis() {
@@ -26,7 +28,7 @@
   function renderPriorities() {
     const items = portfolio.contractors.slice(0, 3);
     $('priority-list').innerHTML = items.map((customer, index) => `<button class="priority-item" type="button" data-customer="${escapeHtml(customer.id)}" style="width:100%;border:0;background:transparent;text-align:left;cursor:pointer">
-      <span class="priority-rank">0${index + 1}</span><span><strong>${escapeHtml(customer.name)}</strong><small>${escapeHtml(customer.risk.reason)} · ${money(customer.policy?.insured, true)} segurados</small></span><span class="risk-chip ${customer.risk.level.toLowerCase()}">${levelNames[customer.risk.level]}</span>
+      <span class="priority-rank">0${index + 1}</span><span><strong>${escapeHtml(customer.name)}</strong><small><b>Leitura IA:</b> ${escapeHtml(customer.risk.reason)} · ${money(customer.policy?.insured, true)} segurados</small></span><span class="risk-chip ${customer.risk.level.toLowerCase()}">${levelNames[customer.risk.level]}</span>
     </button>`).join('');
   }
 
@@ -70,7 +72,7 @@
 
   function renderClaims() {
     $('claim-total').textContent = `${portfolio.claims.length} eventos`;
-    $('claim-list').innerHTML = portfolio.claims.map((claim) => `<article class="claim-card"><div class="claim-head"><span class="claim-status">${statusNames[claim.status] || escapeHtml(claim.status)}</span><span class="muted">${new Date(claim.occurredAt).toLocaleDateString('pt-BR')}</span></div><h3>${escapeHtml(claim.kind)}</h3><small>${escapeHtml(claim.customerName)} · ${escapeHtml(claim.deviceId || 'sem dispositivo')}</small><p>${escapeHtml(claim.summary)}</p><div class="claim-metrics"><span>PERDA ESTIMADA<b>${money(claim.loss)}</b></span><span>CONFIANÇA DO SINAL<b>${claim.confidence ?? '—'}%</b></span></div></article>`).join('');
+    $('claim-list').innerHTML = portfolio.claims.map((claim) => `<article class="claim-card"><div class="claim-head"><span class="claim-status">${statusNames[claim.status] || escapeHtml(claim.status)}</span><span class="muted">${new Date(claim.occurredAt).toLocaleDateString('pt-BR')}</span></div><span class="ai-signal">✦ POSSÍVEL EVENTO IDENTIFICADO PELA IA</span><h3>${escapeHtml(claim.kind)}</h3><small>${escapeHtml(claim.customerName)} · ${escapeHtml(claim.deviceId || 'sem dispositivo')}</small><p>${escapeHtml(claim.summary)}</p><div class="claim-metrics"><span>PERDA ESTIMADA<b>${money(claim.loss)}</b></span><span>CONFIANÇA DO SINAL<b>${claim.confidence ?? '—'}%</b></span></div></article>`).join('');
   }
 
   function openCustomer(id) {
@@ -78,6 +80,53 @@
     if (!customer) return;
     $('customer-detail').innerHTML = `<div class="detail-head"><span class="section-kicker">DOSSIÊ DO SEGURADO</span><h2>${escapeHtml(customer.name)}</h2><p>${escapeHtml(customer.ownerName)} · ${escapeHtml(customer.document)} · ${escapeHtml(customer.email)}</p></div><span class="risk-chip ${customer.risk.level.toLowerCase()}">${levelNames[customer.risk.level]} · ${customer.risk.score ?? '—'}/100</span><div class="detail-grid"><div><span>VALOR SEGURADO</span><strong>${money(customer.policy?.insured)}</strong></div><div><span>PRÊMIO ANUAL</span><strong>${money(customer.policy?.premium)}</strong></div><div><span>FRANQUIA</span><strong>${money(customer.policy?.deductible)}</strong></div><div><span>APÓLICE</span><strong>${escapeHtml(customer.policy?.number || '—')}</strong></div><div><span>ÁREA PRODUTIVA</span><strong>${Number(customer.hectares).toLocaleString('pt-BR')} ha</strong></div><div><span>GESTOR SOMPO</span><strong>${escapeHtml(customer.manager)}</strong></div></div><div class="detail-note"><strong>Leitura prioritária:</strong> ${escapeHtml(customer.risk.reason)} A telemetria é evidência de apoio e deve ser confrontada com vistoria e documentos.</div>`;
     $('customer-dialog').showModal();
+  }
+
+  function progressRow(label, value, target) {
+    const progress = Math.min(100, target ? value / target * 100 : 0);
+    return `<div class="readiness-row"><span>${escapeHtml(label)}</span><div class="readiness-track"><span style="width:${progress}%"></span></div><b>${value} / ${target}</b></div>`;
+  }
+
+  function renderLearning(modelData, events) {
+    const { readiness, anomalyModel, eventModel } = modelData;
+    $('nav-label-count').textContent = readiness.pendingLabels;
+    $('learning-state').textContent = readiness.eligibleForSupervisedTraining ? 'BASE ELEGÍVEL' : 'COLETA CONTROLADA';
+    $('learning-state').className = `learning-state ${readiness.eligibleForSupervisedTraining ? 'ready' : 'waiting'}`;
+    $('anomaly-version').textContent = anomalyModel ? `${anomalyModel.version} · ${anomalyModel.datasetRows.toLocaleString('pt-BR')} leituras reais` : 'Aguardando ao menos 500 leituras reais';
+    const metrics = anomalyModel?.metrics || {};
+    const rates = Object.values(metrics.validationByDevice || {}).map((item) => Number(item.alertRate) || 0);
+    const alertRate = rates.length ? rates.reduce((sum, value) => sum + value, 0) / rates.length : 0;
+    $('anomaly-metrics').innerHTML = anomalyModel ? `<span class="metric-pill"><small>TAXA DE ALERTA NA VALIDAÇÃO</small><strong>${percent(alertRate * 100)}</strong></span><span class="metric-pill"><small>EQUIPAMENTOS</small><strong>${metrics.profiledDevices ?? '—'}</strong></span>` : '';
+    $('readiness-bars').innerHTML = progressRow('Positivos', readiness.positiveLabels, readiness.minimums.positives) + progressRow('Negativos', readiness.negativeLabels, readiness.minimums.negatives) + progressRow('Máquinas', readiness.devices, readiness.minimums.devices);
+    $('event-model-version').textContent = eventModel?.status === 'active' ? `${eventModel.version} · validado e ativo` : `${readiness.verifiedLabels} rótulos verificados · ${readiness.realTelemetryRows.toLocaleString('pt-BR')} leituras reais · ${readiness.weatherContexts} contextos climáticos`;
+
+    const pending = events.filter((event) => event.verificationStatus === 'pending');
+    $('label-summary').textContent = `${pending.length} pendentes · ${readiness.verifiedLabels} verificados`;
+    $('label-list').innerHTML = pending.length ? pending.map((event) => `<div class="label-row">
+      <div class="label-main"><strong>${escapeHtml(eventNames[event.eventType] || event.eventType)} · ${escapeHtml(event.deviceId)}</strong><small>${new Date(event.eventAt).toLocaleString('pt-BR')} · informado por ${escapeHtml(event.reportedBy)}</small></div>
+      <div class="label-fact"><span>DESFECHO INFORMADO</span><strong>${escapeHtml(outcomeNames[event.outcome] || event.outcome)}</strong></div>
+      <span class="label-source ${event.source === 'demo' ? 'demo' : ''}">${event.source === 'demo' ? 'DEMONSTRAÇÃO · FORA DO TREINO' : 'DADO HUMANO REAL'}</span>
+      <div class="label-actions"><button type="button" data-review="rejected" data-event-id="${escapeHtml(event.id)}">DESCARTAR</button><button class="verify" type="button" data-review="verified" data-event-id="${escapeHtml(event.id)}">VALIDAR</button></div>
+    </div>`).join('') : '<p class="label-empty">Nenhuma ocorrência aguarda validação.</p>';
+  }
+
+  async function loadLearning() {
+    const [modelResponse, eventsResponse] = await Promise.all([fetch('/api/model-readiness', { cache: 'no-store' }), fetch('/api/events?limit=100', { cache: 'no-store' })]);
+    const [modelData, events] = await Promise.all([modelResponse.json(), eventsResponse.json()]);
+    if (!modelResponse.ok) throw new Error(modelData.error || 'Falha ao carregar modelos');
+    if (!eventsResponse.ok) throw new Error(events.error || 'Falha ao carregar ocorrências');
+    renderLearning(modelData, events);
+  }
+
+  async function reviewEvent(button) {
+    button.disabled = true;
+    try {
+      const response = await fetch('/api/events', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: button.dataset.eventId, decision: button.dataset.review }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Não foi possível revisar a ocorrência');
+      await loadLearning();
+    } catch (error) { $('page-error').textContent = error.message; $('page-error').hidden = false; }
+    finally { button.disabled = false; }
   }
 
   async function load() {
@@ -88,6 +137,7 @@
       if (!response.ok) throw new Error(result.error || 'Não foi possível carregar a carteira');
       portfolio = result;
       renderKpis(); renderPriorities(); renderExposure(); renderCustomers(); renderClaims();
+      await loadLearning();
       $('updated-at').textContent = `Atualizado às ${new Date(result.generatedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
       $('page-error').hidden = true;
     } catch (error) {
@@ -99,7 +149,7 @@
   $('refresh').addEventListener('click', load);
   $('customer-search').addEventListener('input', renderCustomers);
   $('risk-filter').addEventListener('change', renderCustomers);
-  document.addEventListener('click', (event) => { const target = event.target.closest('[data-customer]'); if (target) openCustomer(target.dataset.customer); });
+  document.addEventListener('click', (event) => { const review = event.target.closest('[data-review]'); if (review) return reviewEvent(review); const target = event.target.closest('[data-customer]'); if (target) openCustomer(target.dataset.customer); });
   document.querySelector('.dialog-close').addEventListener('click', () => $('customer-dialog').close());
   $('customer-dialog').addEventListener('click', (event) => { if (event.target === $('customer-dialog')) $('customer-dialog').close(); });
   $('logout').addEventListener('click', () => window.agroRiskLogout());

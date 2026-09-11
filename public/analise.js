@@ -6,6 +6,8 @@
   let analysis;
   let activeAudience = 'broker';
   const audienceLabels = { broker: 'LEITURA PARA O CORRETOR', underwriter: 'LEITURA PARA O SUBSCRITOR', claims: 'LEITURA PARA O ANALISTA DE SINISTROS' };
+  const eventTypeLabels = { collision: 'Colisão', rollover: 'Tombamento', mechanical_failure: 'Falha mecânica', fire: 'Incêndio', geofence: 'Saída da área', sensor_failure: 'Falha de sensor', other: 'Outro' };
+  const outcomeLabels = { incident: 'Incidente com dano', near_miss: 'Quase acidente', no_damage: 'Sem dano', false_alarm: 'Falso alerta', maintenance: 'Manutenção preventiva' };
 
   function fmt(value, unit = '') {
     return Number.isFinite(Number(value)) && value !== null && value !== '' ? `${Number(value).toFixed(1)}${unit}` : '—';
@@ -44,6 +46,12 @@
       : result.governance?.latestModelVersion
         ? `${result.governance.latestModelVersion} · status ${result.governance.status} · não usado na explicação`
         : 'Nenhum modelo treinado';
+    $('anomaly-prediction').textContent = result.anomaly?.available
+      ? result.anomaly.anomalous ? `Anomalia identificada · ${result.anomaly.score}/100` : `Comportamento esperado · ${result.anomaly.score}/100`
+      : 'Perfil real ainda indisponível';
+    $('anomaly-version').textContent = result.anomaly?.available
+      ? `${result.anomaly.modelVersion} · ${result.anomaly.unusualFeatures.length ? `desvios: ${result.anomaly.unusualFeatures.map((item) => item.label).join(', ')}` : 'sem desvio relevante'}`
+      : result.anomaly?.reason || 'Treinado somente com telemetria real';
     $('factor-total').textContent = `${result.audit.factors.reduce((total, factor) => total + Number(factor.points || 0), 0)} pontos brutos`;
     $('factor-list').innerHTML = result.audit.factors.map((factor) => `<div class="factor ${factor.points ? '' : 'zero'}"><div><strong>${escapeHtml(factor.label)}</strong><small>${escapeHtml(factor.code)}</small></div><b>+${Number(factor.points || 0)}</b></div>`).join('') || '<div class="factor zero"><strong>Sem fatores disponíveis</strong><b>—</b></div>';
     const t = result.audit.telemetry;
@@ -92,6 +100,34 @@
     }
   }
 
+  async function loadEvents() {
+    try {
+      const response = await fetch('/api/events?limit=50', { cache: 'no-store' });
+      const events = await response.json();
+      if (!response.ok) throw new Error(events.error || 'Falha ao carregar ocorrências');
+      const selected = events.filter((event) => event.deviceId === deviceId);
+      $('event-history').innerHTML = selected.length ? selected.map((event) => `<div class="event-entry"><strong>${escapeHtml(eventTypeLabels[event.eventType] || event.eventType)} · ${escapeHtml(outcomeLabels[event.outcome] || event.outcome)}</strong><small>${new Date(event.eventAt).toLocaleString('pt-BR')} ${event.damageAmount ? `· dano estimado R$ ${Number(event.damageAmount).toLocaleString('pt-BR')}` : ''}</small><span class="event-status ${escapeHtml(event.verificationStatus)}">${event.verificationStatus === 'verified' ? 'VALIDADO PELA SOMPO' : event.verificationStatus === 'rejected' ? 'DESCARTADO' : 'AGUARDANDO VALIDAÇÃO'}</span></div>`).join('') : '<p class="empty-event">Nenhuma ocorrência registrada para esta máquina.</p>';
+    } catch (error) { $('event-history').innerHTML = `<p class="empty-event">${escapeHtml(error.message)}</p>`; }
+  }
+
+  async function submitEvent(event) {
+    event.preventDefault();
+    const button = event.submitter; button.disabled = true; $('event-feedback').textContent = 'Registrando evidência...';
+    const payload = Object.fromEntries(new FormData(event.currentTarget)); payload.deviceId = deviceId;
+    try {
+      const response = await fetch('/api/events', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) });
+      const result = await response.json(); if (!response.ok) throw new Error(result.error || 'Não foi possível registrar');
+      $('event-feedback').textContent = result.source === 'demo' ? 'Cenário salvo como demonstração; ele não entra no treinamento.' : 'Ocorrência enviada para validação da Sompo.';
+      event.currentTarget.reset(); setDefaultEventTime(); await loadEvents();
+    } catch (error) { $('event-feedback').textContent = error.message; }
+    finally { button.disabled = false; }
+  }
+
+  function setDefaultEventTime() {
+    const local = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    $('event-at').value = local;
+  }
+
   document.querySelector('.audience-tabs').addEventListener('click', (event) => {
     const button = event.target.closest('[data-audience]');
     if (!button) return;
@@ -99,7 +135,8 @@
     document.querySelectorAll('[data-audience]').forEach((tab) => { const active = tab === button; tab.classList.toggle('active', active); tab.setAttribute('aria-selected', String(active)); });
     renderNarrative();
   });
-  $('machine-select').addEventListener('change', (event) => { deviceId = event.target.value; history.replaceState(null, '', `/analise.html?deviceId=${encodeURIComponent(deviceId)}`); loadAnalysis(); });
+  $('machine-select').addEventListener('change', (event) => { deviceId = event.target.value; history.replaceState(null, '', `/analise.html?deviceId=${encodeURIComponent(deviceId)}`); loadAnalysis(); loadEvents(); });
+  $('event-form').addEventListener('submit', submitEvent);
   $('copy-analysis').addEventListener('click', async () => {
     if (!analysis) return;
     const narrative = analysis.audiences[activeAudience];
@@ -112,5 +149,6 @@
     const link = document.createElement('a'); link.href = url; link.download = `analise-${deviceId}.json`; link.click(); URL.revokeObjectURL(url);
   });
 
-  Promise.all([loadMachines(), loadAnalysis()]);
+  setDefaultEventTime();
+  Promise.all([loadMachines(), loadAnalysis(), loadEvents()]);
 })();
