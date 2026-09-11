@@ -12,6 +12,9 @@ function adapt(response) {
   // Preserva o setHeader nativo: os handlers dependem dele para declarar o charset.
   response.status = (code) => { response.statusCode = code; return response; };
   response.json = (payload) => response.end(Buffer.from(JSON.stringify(payload), 'utf8'));
+  // A Vercel expõe send(); o servidor HTTP puro não. Sem isso, as rotas que devolvem
+  // texto (CSV) quebrariam aqui e passariam em produção — ou o contrário.
+  response.send = (payload) => response.end(Buffer.isBuffer(payload) ? payload : Buffer.from(String(payload), 'utf8'));
   return response;
 }
 

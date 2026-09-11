@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Relatórios históricos de risco por fazenda, região e período">
+  <title>Relatórios Históricos | Sompo Agro Risk</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/relatorios.css">
+  <script src="/auth-guard.js"></script>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/icons/icon-180.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+  <meta name="apple-mobile-web-app-title" content="AgroRisk">
+  <meta name="theme-color" content="#b70021">
+</head>
+<body>
+  <div class="utility"><div class="utility-inner"><span>HISTÓRICO OPERACIONAL · ANÁLISE DE EXPOSIÇÃO</span><span id="generated-at">Carregando...</span></div></div>
+
+  <header class="main-header">
+    <nav class="main-nav" aria-label="Navegação principal">
+      <img class="logo" src="/sompo-logo.png" alt="Sompo">
+      <div class="navlinks">
+        <a href="/frota.html">Gestão da Frota</a>
+        <a href="/analise.html">Análise Explicável</a>
+        <a class="active" href="/relatorios.html">Relatórios</a>
+        <a href="/sompo-agro-risk.html">Monitoramento</a>
+        <a href="/mapeamento-riscos.html">Mapeamento de Riscos</a>
+      </div>
+    </nav>
+  </header>
+
+  <main class="page">
+    <header class="page-head">
+      <div>
+        <span class="eyebrow">RELATÓRIOS HISTÓRICOS</span>
+        <h1>Exposição ao risco por período</h1>
+        <p>Consolida as leituras de telemetria do período escolhido e mostra onde a operação concentrou risco.</p>
+      </div>
+      <button id="export" class="primary" type="button">EXPORTAR CSV</button>
+    </header>
+
+    <form id="filters" class="filters" aria-label="Filtros do relatório">
+      <label>
+        <span>De</span>
+        <input type="date" name="from" id="from" required>
+      </label>
+      <label>
+        <span>Até</span>
+        <input type="date" name="to" id="to" required>
+      </label>
+      <label>
+        <span>Agrupar por</span>
+        <select name="groupBy" id="groupBy">
+          <option value="fazenda">Fazenda</option>
+          <option value="regiao">Região</option>
+          <option value="equipamento">Equipamento</option>
+          <option value="dia">Dia</option>
+        </select>
+      </label>
+      <div class="presets" role="group" aria-label="Períodos rápidos">
+        <button type="button" data-days="7">7 dias</button>
+        <button type="button" data-days="30">30 dias</button>
+        <button type="button" data-days="90">90 dias</button>
+      </div>
+      <button class="primary" type="submit">APLICAR</button>
+    </form>
+
+    <section class="summary five" aria-label="Resumo do período">
+      <article class="summary-card"><span>Leituras analisadas</span><strong id="s-readings">—</strong><small id="s-period">no período</small></article>
+      <article class="summary-card"><span>Score médio</span><strong id="s-average">—</strong><small>0 a 100</small></article>
+      <article class="summary-card high"><span>Tempo em risco alto</span><strong id="s-high">—</strong><small>das leituras com score</small></article>
+      <article class="summary-card"><span>Equipamentos</span><strong id="s-devices">—</strong><small>com telemetria</small></article>
+      <article class="summary-card high"><span>Eventos críticos</span><strong id="s-events">—</strong><small id="s-events-detail">na trilha de auditoria</small></article>
+    </section>
+
+    <section class="card">
+      <div class="section-title">
+        <div><p class="eyebrow">DETALHAMENTO</p><h2 id="table-title">Por fazenda</h2></div>
+        <span id="row-count" class="muted"></span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th id="group-column">Fazenda</th>
+              <th>Leituras</th>
+              <th>Equip.</th>
+              <th>Score médio</th>
+              <th>Pico</th>
+              <th>Distribuição</th>
+              <th>Risco alto</th>
+              <th>Eventos</th>
+              <th>Fatores predominantes</th>
+            </tr>
+          </thead>
+          <tbody id="rows">
+            <tr><td colspan="9" class="empty">Carregando relatório...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="/relatorios.js"></script>
+  <script src="/alerts.js"></script>
+</body>
+</html>

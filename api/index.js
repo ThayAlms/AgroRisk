@@ -14,6 +14,7 @@ const handlers = Object.freeze({
   machines: require('../handlers/machines'),
   measurements: require('../handlers/measurements'),
   push: require('../handlers/push'),
+  reports: require('../handlers/reports'),
   'risk-discovery': require('../handlers/risk-discovery'),
   telegram: require('../handlers/telegram'),
   'telegram-webhook': require('../handlers/telegram-webhook'),
