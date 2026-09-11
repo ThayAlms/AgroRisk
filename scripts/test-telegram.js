@@ -90,6 +90,18 @@ async function main() {
   assert.match(message.payload.text, /Risco alto/);
   assert.strictEqual(message.payload.reply_markup.inline_keyboard[0][0].url, 'https://agrorisk-sompo.vercel.app/index.html?deviceId=colheitadeira-01');
 
+  // 5b. O endereço observado na requisição vence PUBLIC_APP_URL: o link precisa
+  // apontar para onde o sistema está sendo acessado de fato (preview, túnel, produção).
+  // Um operador recém-vinculado escapa da janela de silêncio do primeiro.
+  const outro = await invoke(telegramHandler, { method: 'POST', query: { deviceId: 'colheitadeira-01' }, body: {}, user: { sub: 'user-farmer-demo' } });
+  await invoke(webhook, { method: 'POST', headers: authorized, body: { message: { chat: { id: 555007 }, text: `/start ${outro.body.code}`, from: { first_name: 'Ana' } } } });
+  sent.length = 0;
+  await invoke(telemetry, { ...critical, headers: { 'x-forwarded-host': 'tunel-de-teste.exemplo', 'x-forwarded-proto': 'https' }, body: { ...critical.body, distanceCm: 4 } });
+  const routed = sent.find((item) => String(item.payload.chat_id) === '555007');
+  assert.ok(routed, 'o operador recém-vinculado deveria receber o alerta em curso');
+  assert.strictEqual(routed.payload.reply_markup.inline_keyboard[0][0].url, 'https://tunel-de-teste.exemplo/index.html?deviceId=colheitadeira-01');
+  await invoke(telegramHandler, { method: 'DELETE', query: { deviceId: 'colheitadeira-01', chatId: '555007' } });
+
   // 6. A mesma regra de silêncio vale para o canal novo.
   sent.length = 0;
   const repeated = await invoke(telemetry, critical);

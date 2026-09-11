@@ -1,7 +1,7 @@
 const { listTelegramRecipients, deleteTelegramRecipient, createTelegramLinkCode } = require('../lib/db');
 const { isConfigured, botUsername, deepLink } = require('../lib/telegram');
 const { sendTestAlert } = require('../lib/notify');
-const { json, method, deviceId } = require('../lib/http');
+const { json, method, deviceId, requestOrigin } = require('../lib/http');
 
 module.exports = async (request, response) => {
   if (!method(request, response, ['GET', 'POST', 'DELETE'])) return;
@@ -39,7 +39,7 @@ module.exports = async (request, response) => {
       const chatId = String(request.body.chatId || '');
       const recipients = (await listTelegramRecipients(id)).filter((recipient) => !chatId || recipient.chatId === chatId);
       if (!recipients.length) return json(response, 404, { error: 'Nenhum operador vinculado a este equipamento' });
-      const outcome = await sendTestAlert(id, recipients, 'telegram');
+      const outcome = await sendTestAlert(id, recipients, 'telegram', requestOrigin(request));
       return json(response, 200, { test: { attempted: outcome.attempted, delivered: outcome.delivered } });
     }
 

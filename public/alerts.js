@@ -129,6 +129,23 @@
     return registration ? registration.pushManager.getSubscription() : null;
   }
 
+  // O aparelho pode ter uma inscrição válida que o servidor não conhece mais
+  // (servidor reiniciado, banco trocado, outro ambiente). Sem reconciliar, o botão
+  // diria "ativo" e o operador não receberia nada — o pior tipo de falha para um alerta.
+  async function reconcilePush() {
+    const subscription = await currentSubscription();
+    if (!subscription) return false;
+    const settings = await request(api('push')).catch(() => null);
+    if (!settings?.configured) return false;
+    if ((settings.devices || []).some((device) => device.endpoint === subscription.endpoint)) return true;
+    await request(api('push'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subscription: subscription.toJSON() }),
+    }).catch(() => null);
+    return true;
+  }
+
   async function enablePush(ui) {
     const settings = await request(api('push'));
     if (!settings.configured) throw new Error('Servidor sem chaves VAPID configuradas.');
@@ -212,14 +229,19 @@
       state.open = !state.open;
       ui.panel.hidden = !state.open;
       if (!state.open) return;
-      state.telegram = await request(api('telegram')).catch(() => ({ configured: false, operators: [] }));
+      const [telegramSettings, pushActive] = await Promise.all([
+        request(api('telegram')).catch(() => ({ configured: false, operators: [] })),
+        supportsPush ? reconcilePush().catch(() => false) : false,
+      ]);
+      state.telegram = telegramSettings;
+      state.push = pushActive;
       paint(ui);
     });
 
     ui.pushButton.addEventListener('click', () => guard(ui, () => (state.push ? disablePush(ui) : enablePush(ui))));
     ui.telegramButton.addEventListener('click', () => guard(ui, () => generateTelegramLink(ui)));
 
-    if (supportsPush) state.push = Boolean(await currentSubscription());
+    if (supportsPush) state.push = await reconcilePush();
     paint(ui);
   }
 
