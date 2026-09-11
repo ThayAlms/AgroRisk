@@ -2,7 +2,8 @@ const {
   getConfig, listDangerZones, getLatestTelemetry, saveTelemetry, addSafetyLog, setCommand, getLocation,
 } = require('../lib/db');
 const { enrichTelemetry } = require('../lib/risk');
-const { json, method, deviceId, authorizedDevice } = require('../lib/http');
+const { notifyOperators } = require('../lib/notify');
+const { json, method, deviceId, authorizedDevice, requestOrigin } = require('../lib/http');
 
 module.exports = async (request, response) => {
   if (!method(request, response, ['POST'])) return;
@@ -21,17 +22,19 @@ module.exports = async (request, response) => {
     let log = null;
     if (nextLevel !== previousLevel) {
       const nearest = reading.danger.nearest;
-      if (nextLevel === 'critical') log = await addSafetyLog(id, 'critical', 'danger-zone', `Entrada na faixa crítica de ${nearest?.name || 'zona perigosa'}`, nearest || {});
-      else if (nextLevel === 'warning') log = await addSafetyLog(id, 'warning', 'danger-zone', `Aproximação de ${nearest?.name || 'zona perigosa'}`, nearest || {});
-      else if (nextLevel === 'safe' && ['warning', 'critical'].includes(previousLevel)) log = await addSafetyLog(id, 'info', 'danger-zone', 'Equipamento retornou à distância segura', nearest || {});
+      if (nextLevel === 'critical') log = await addSafetyLog(id, 'critical', 'danger-zone', `Entrada na faixa crítica de ${nearest?.name || 'zona perigosa'}`, nearest || {}, reading.timestamp);
+      else if (nextLevel === 'warning') log = await addSafetyLog(id, 'warning', 'danger-zone', `Aproximação de ${nearest?.name || 'zona perigosa'}`, nearest || {}, reading.timestamp);
+      else if (nextLevel === 'safe' && ['warning', 'critical'].includes(previousLevel)) log = await addSafetyLog(id, 'info', 'danger-zone', 'Equipamento retornou à distância segura', nearest || {}, reading.timestamp);
     }
     const leftGeofence = reading.geofence?.inside === false && previous?.geofence?.inside !== false;
     const returnedToGeofence = reading.geofence?.inside === true && previous?.geofence?.inside === false;
-    if (leftGeofence) log = await addSafetyLog(id, 'critical', 'geofence', 'Equipamento saiu da área operacional segura', reading.geofence);
-    else if (returnedToGeofence) log = await addSafetyLog(id, 'info', 'geofence', 'Equipamento retornou à área operacional segura', reading.geofence);
+    if (leftGeofence) log = await addSafetyLog(id, 'critical', 'geofence', 'Equipamento saiu da área operacional segura', reading.geofence, reading.timestamp);
+    else if (returnedToGeofence) log = await addSafetyLog(id, 'info', 'geofence', 'Equipamento retornou à área operacional segura', reading.geofence, reading.timestamp);
     const buzzerActive = nextLevel === 'critical' || reading.geofence?.inside === false;
     const reason = nextLevel === 'critical' ? 'danger-zone' : reading.geofence?.inside === false ? 'geofence' : null;
     const [command] = await Promise.all([setCommand(id, buzzerActive, reason), saveTelemetry(id, reading)]);
-    json(response, 201, { accepted: true, telemetry: reading, command, log });
+    // O alerta no celular do operador nunca pode derrubar a ingestão de telemetria.
+    const push = await notifyOperators(id, reading, null, { baseUrl: requestOrigin(request) }).catch((error) => ({ sent: 0, skipped: error.message }));
+    json(response, 201, { accepted: true, telemetry: reading, command, log, push });
   } catch (error) { json(response, 500, { error: error.message }); }
 };

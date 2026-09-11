@@ -15,14 +15,18 @@ const handlers = Object.freeze({
   location: require('../handlers/location'),
   machines: require('../handlers/machines'),
   measurements: require('../handlers/measurements'),
+  push: require('../handlers/push'),
+  reports: require('../handlers/reports'),
   'risk-discovery': require('../handlers/risk-discovery'),
+  telegram: require('../handlers/telegram'),
+  'telegram-webhook': require('../handlers/telegram-webhook'),
   'safety-logs': require('../handlers/safety-logs'),
   status: require('../handlers/status'),
   telemetry: require('../handlers/telemetry'),
 });
 
-const PUBLIC_ROUTES = new Set(['health', 'login', 'session', 'logout', 'telemetry', 'commands']);
-const DEVICE_SCOPED_ROUTES = new Set(['analysis', 'config', 'danger-zones', 'export.csv', 'location', 'measurements', 'safety-logs', 'status']);
+const PUBLIC_ROUTES = new Set(['health', 'login', 'session', 'logout', 'telemetry', 'commands', 'telegram-webhook']);
+const DEVICE_SCOPED_ROUTES = new Set(['analysis', 'config', 'danger-zones', 'export.csv', 'location', 'measurements', 'push', 'safety-logs', 'status', 'telegram']);
 
 function reject(response, status, error) {
   response.statusCode = status;

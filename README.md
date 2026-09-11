@@ -100,6 +100,55 @@ npm run train:event
 
 Veja [Modelo de IA real e gratuito](docs/MODELO_REAL_GRATUITO.md) para arquitetura, critérios e governança.
 
+### Alertas no celular do operador
+
+Cada leitura crítica vira um alerta no celular de quem opera a máquina, por dois
+canais independentes: **Web Push**, com criptografia ponta a ponta (`aes128gcm`)
+e assinatura VAPID implementadas sobre `node:crypto` sem dependência externa; e
+**Telegram**, com uma conversa individual por operador, vinculada por um código
+de uso único que expira em quinze minutos.
+
+O motor de risco decide uma única vez o que merece interromper o operador, e os
+canais apenas transportam: o alerta só sai quando a condição piora ou persiste
+além do intervalo de silêncio, um canal indisponível não impede a entrega pelo
+outro, e nenhuma falha de entrega bloqueia a ingestão de telemetria.
+
+Para ativar, gere as chaves com `npm run push:keys`, registre o bot com
+`npm run telegram:webhook` e use o botão **🔔 Alertas** no painel autenticado.
+
+Detalhes, contrapartidas de privacidade entre os canais e configuração completa
+em [Alertas no celular do operador](docs/ALERTAS_CELULAR.md).
+
+### Relatórios históricos
+
+A rota `/relatorios.html` consolida um período inteiro de operação e responde
+onde o risco se concentrou. O recorte é por **fazenda, região, equipamento ou
+dia**, com atalhos de 7, 30 e 90 dias.
+
+Cada linha traz as leituras analisadas, o score médio e o pico, a distribuição
+entre risco alto, médio, baixo e sem sinal, a parcela do período em risco alto e
+os **fatores que predominaram** — inclinação crítica, obstáculo, velocidade — com
+quantas vezes cada um apareceu. É a mesma explicabilidade do score, aplicada ao
+histórico: o relatório não diz apenas que a média foi 45, diz por quê.
+
+Junto da telemetria entram os **eventos da trilha de auditoria** (`safety_logs`):
+saídas da área operacional e entradas em zona perigosa, separados entre críticos
+e informativos. A telemetria descreve como a máquina estava; o evento registra o
+que aconteceu. Por isso a ordenação começa por quem tem mais eventos críticos, e
+só depois considera exposição média — fato registrado pesa mais que média.
+
+O recorte por cliente é aplicado no servidor: o perfil `farmer` só alcança a
+própria carteira, mesmo informando o equipamento de outra conta na URL, e o
+perfil `sompo` enxerga a carteira inteira. O mesmo recorte vale para o CSV
+exportado pelo botão da tela ou por `GET /api/reports?format=csv`.
+
+| Parâmetro | Valores |
+|---|---|
+| `groupBy` | `fazenda`, `regiao`, `equipamento`, `dia` |
+| `from` / `to` | data `AAAA-MM-DD` ou instante ISO; o dia final entra inteiro |
+| `deviceId` | limita a um equipamento |
+| `format` | `csv` para baixar a planilha |
+
 Quando o GPS físico ainda não possui posição válida, o navegador pode fornecer temporariamente a localização do computador. As zonas sugeridas pelo OpenStreetMap precisam ser confirmadas pelo operador antes de participarem dos alertas.
 
 ## Executar o MVP Python
@@ -151,7 +200,7 @@ AgroRisk/
 ├── firmware/        código do ESP32 e exemplos de configuração
 ├── gateway/         leitura da porta serial e envio à nuvem
 ├── lib/             persistência e regras compartilhadas do backend web
-├── public/          dashboard e interfaces do operador
+├── public/          dashboard, relatórios e interfaces do operador
 ├── python_mvp/      backend acadêmico da Sprint 3
 └── scripts/         testes de integração do sistema web
 ```
@@ -159,6 +208,8 @@ AgroRisk/
 ## Validação realizada
 
 - teste de integração do sistema JavaScript aprovado;
+- alertas no celular verificados de ponta a ponta nos dois canais (criptografia, assinatura VAPID, vinculação do Telegram e regra de silêncio);
+- relatórios históricos cobertos por testes de período, agrupamento, agregação de eventos e isolamento entre carteiras;
 - cinco testes automatizados do MVP Python aprovados;
 - cenários simulados de risco baixo, médio e alto;
 - validação de dados inválidos e campos obrigatórios;
@@ -169,5 +220,6 @@ AgroRisk/
 - [Detalhes do MVP Python](python_mvp/README.md)
 - [Arquitetura em nuvem](docs/ARQUITETURA_VERCEL.md)
 - [Configuração do banco no DBeaver](docs/DBEAVER.md)
+- [Alertas no celular do operador](docs/ALERTAS_CELULAR.md)
 - [Firmware do ESP32](firmware/AgroRiskESP32/README.md)
 - [Integração do buzzer](INTEGRACAO_BUZZER_ESP32.md)
