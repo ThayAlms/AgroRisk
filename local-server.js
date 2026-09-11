@@ -10,11 +10,17 @@ const { generateExplanation } = require('./lib/explanation');
 const { getActiveModel, getLatestModel } = require('./lib/db');
 const { authenticate, readSession, setSessionCookie, clearSessionCookie, publicUser } = require('./lib/auth');
 const { buildSompoPortfolio } = require('./lib/portfolio');
+const { notifyOperators, sendTestAlert } = require('./lib/notify');
+const { vapidKeysFromEnvironment } = require('./lib/webpush');
+const { savePushSubscription, deletePushSubscription, listPushSubscriptions,
+  listTelegramRecipients, deleteTelegramRecipient, createTelegramLinkCode } = require('./lib/db');
+const telegramChannel = require('./lib/telegram');
 
 const WEB_PORT = Number(process.env.PORT || 3000);
 const SERIAL_BAUD = Number(process.env.SERIAL_BAUD || 115200);
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const DATA_DIR = path.join(__dirname, 'data');
+const LOCAL_DEVICE_ID = process.env.DEVICE_ID || 'colheitadeira-01';
 const HISTORY_FILE = path.join(DATA_DIR, 'measurements.ndjson');
 const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
 const SAFETY_LOG_FILE = path.join(DATA_DIR, 'safety-logs.ndjson');
@@ -338,6 +344,7 @@ class SensorBlockParser {
     handleDangerTransition(completed);
     persist(completed);
     broadcast('measurement', completed);
+    notifyOperators(LOCAL_DEVICE_ID, completed).catch((error) => console.warn('[push]', error.message));
     this.reset();
   }
 }
@@ -542,6 +549,63 @@ const server = http.createServer(async (request, response) => {
     if (request.method === 'GET' && url.pathname === '/api/safety-logs') {
       const limit = Math.min(Math.max(Number(url.searchParams.get('limit')) || 50, 1), 500);
       return sendJson(response, 200, safetyLogs.slice(-limit));
+    }
+    if (url.pathname === '/api/push') {
+      const keys = vapidKeysFromEnvironment();
+      if (request.method === 'GET') {
+        const devices = keys ? await listPushSubscriptions(LOCAL_DEVICE_ID) : [];
+        return sendJson(response, 200, {
+          configured: Boolean(keys),
+          publicKey: keys?.publicKey || null,
+          deviceId: LOCAL_DEVICE_ID,
+          devices: devices.map((item) => ({ endpoint: item.endpoint, userAgent: item.userAgent, createdAt: item.createdAt, lastNotifiedAt: item.lastNotifiedAt })),
+        });
+      }
+      if (!keys) return sendJson(response, 503, { error: 'Alertas no celular não configurados: defina VAPID_PUBLIC_KEY e VAPID_PRIVATE_KEY' });
+      if (request.method === 'DELETE') {
+        const endpoint = url.searchParams.get('endpoint') || (await readBody(request))?.endpoint;
+        if (!endpoint) return sendJson(response, 400, { error: 'Endpoint da inscrição é obrigatório' });
+        return sendJson(response, 200, { removed: await deletePushSubscription(endpoint) });
+      }
+      if (request.method === 'POST') {
+        const body = await readBody(request);
+        const subscription = body?.subscription || body;
+        if (!subscription?.endpoint) return sendJson(response, 400, { error: 'Inscrição de push inválida' });
+        const saved = await savePushSubscription(LOCAL_DEVICE_ID, { ...subscription, userAgent: request.headers['user-agent'] }, authenticatedUser);
+        const test = body?.sendTest ? await sendTestAlert(LOCAL_DEVICE_ID, [saved]) : null;
+        return sendJson(response, 201, { subscribed: true, deviceId: LOCAL_DEVICE_ID, test: test && { delivered: test.delivered, attempted: test.attempted } });
+      }
+    }
+    if (url.pathname === '/api/telegram') {
+      if (request.method === 'GET') {
+        const operators = telegramChannel.isConfigured() ? await listTelegramRecipients(LOCAL_DEVICE_ID) : [];
+        return sendJson(response, 200, {
+          configured: telegramChannel.isConfigured(),
+          botUsername: telegramChannel.botUsername(),
+          deviceId: LOCAL_DEVICE_ID,
+          operators: operators.map((item) => ({ chatId: item.chatId, operatorName: item.operatorName, username: item.username, createdAt: item.createdAt, lastNotifiedAt: item.lastNotifiedAt })),
+        });
+      }
+      if (!telegramChannel.isConfigured()) return sendJson(response, 503, { error: 'Alertas por Telegram não configurados: defina TELEGRAM_BOT_TOKEN' });
+      if (request.method === 'DELETE') {
+        const chatId = url.searchParams.get('chatId') || (await readBody(request))?.chatId;
+        if (!chatId) return sendJson(response, 400, { error: 'chatId do operador é obrigatório' });
+        return sendJson(response, 200, { removed: await deleteTelegramRecipient(chatId) });
+      }
+      if (request.method === 'POST') {
+        const body = await readBody(request);
+        if (body?.sendTest) {
+          const operators = await listTelegramRecipients(LOCAL_DEVICE_ID);
+          if (!operators.length) return sendJson(response, 404, { error: 'Nenhum operador vinculado a este equipamento' });
+          const outcome = await sendTestAlert(LOCAL_DEVICE_ID, operators, 'telegram');
+          return sendJson(response, 200, { test: { attempted: outcome.attempted, delivered: outcome.delivered } });
+        }
+        const link = await createTelegramLinkCode(LOCAL_DEVICE_ID, {
+          operatorName: String(body?.operatorName || '').slice(0, 120) || null,
+          createdBy: authenticatedUser?.sub || null,
+        });
+        return sendJson(response, 201, { code: link.code, url: telegramChannel.deepLink(link.code), expiresAt: link.expiresAt });
+      }
     }
     if (request.method === 'GET' && url.pathname === '/api/export.csv') return exportCsv(response);
     if (request.method === 'GET' && url.pathname === '/events') {

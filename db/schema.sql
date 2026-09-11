@@ -140,3 +140,37 @@ CREATE TABLE IF NOT EXISTS customer_risk_snapshots (
   reason TEXT NOT NULL,
   evaluated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  endpoint TEXT PRIMARY KEY,
+  device_id TEXT NOT NULL,
+  user_id TEXT,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  user_agent TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_notified_at TIMESTAMPTZ,
+  last_severity TEXT
+);
+CREATE INDEX IF NOT EXISTS push_subscriptions_device_idx ON push_subscriptions (device_id);
+
+CREATE TABLE IF NOT EXISTS telegram_recipients (
+  chat_id TEXT PRIMARY KEY,
+  device_id TEXT NOT NULL,
+  operator_name TEXT,
+  username TEXT,
+  linked_by TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_notified_at TIMESTAMPTZ,
+  last_severity TEXT
+);
+CREATE INDEX IF NOT EXISTS telegram_recipients_device_idx ON telegram_recipients (device_id);
+
+CREATE TABLE IF NOT EXISTS telegram_link_codes (
+  code TEXT PRIMARY KEY,
+  device_id TEXT NOT NULL,
+  operator_name TEXT,
+  created_by TEXT,
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at TIMESTAMPTZ
+);

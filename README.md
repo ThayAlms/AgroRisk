@@ -88,6 +88,25 @@ npm run train:model
 
 Consulte [Governança da camada analítica](docs/GOVERNANCA_MODELO.md) para fronteira de decisão, critérios de ativação e trilha em `safety_logs`.
 
+### Alertas no celular do operador
+
+Cada leitura crítica vira um alerta no celular de quem opera a máquina, por dois
+canais independentes: **Web Push**, com criptografia ponta a ponta (`aes128gcm`)
+e assinatura VAPID implementadas sobre `node:crypto` sem dependência externa; e
+**Telegram**, com uma conversa individual por operador, vinculada por um código
+de uso único que expira em quinze minutos.
+
+O motor de risco decide uma única vez o que merece interromper o operador, e os
+canais apenas transportam: o alerta só sai quando a condição piora ou persiste
+além do intervalo de silêncio, um canal indisponível não impede a entrega pelo
+outro, e nenhuma falha de entrega bloqueia a ingestão de telemetria.
+
+Para ativar, gere as chaves com `npm run push:keys`, registre o bot com
+`npm run telegram:webhook` e use o botão **🔔 Alertas** no painel autenticado.
+
+Detalhes, contrapartidas de privacidade entre os canais e configuração completa
+em [Alertas no celular do operador](docs/ALERTAS_CELULAR.md).
+
 Quando o GPS físico ainda não possui posição válida, o navegador pode fornecer temporariamente a localização do computador. As zonas sugeridas pelo OpenStreetMap precisam ser confirmadas pelo operador antes de participarem dos alertas.
 
 ## Executar o MVP Python
@@ -147,6 +166,7 @@ AgroRisk/
 ## Validação realizada
 
 - teste de integração do sistema JavaScript aprovado;
+- alertas no celular verificados de ponta a ponta nos dois canais (criptografia, assinatura VAPID, vinculação do Telegram e regra de silêncio);
 - cinco testes automatizados do MVP Python aprovados;
 - cenários simulados de risco baixo, médio e alto;
 - validação de dados inválidos e campos obrigatórios;
@@ -157,5 +177,6 @@ AgroRisk/
 - [Detalhes do MVP Python](python_mvp/README.md)
 - [Arquitetura em nuvem](docs/ARQUITETURA_VERCEL.md)
 - [Configuração do banco no DBeaver](docs/DBEAVER.md)
+- [Alertas no celular do operador](docs/ALERTAS_CELULAR.md)
 - [Firmware do ESP32](firmware/AgroRiskESP32/README.md)
 - [Integração do buzzer](INTEGRACAO_BUZZER_ESP32.md)

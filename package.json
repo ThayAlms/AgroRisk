@@ -4,7 +4,9 @@
   "private": true,
   "description": "Dashboard em tempo real para os sensores da colheitadeira",
   "scripts": {
-    "test": "node scripts/test-hybrid.js && node scripts/test-risk-fleet.js && node scripts/test-explanation.js && node scripts/test-auth-portfolio.js",
+    "test": "node scripts/test-hybrid.js && node scripts/test-risk-fleet.js && node scripts/test-explanation.js && node scripts/test-auth-portfolio.js && node scripts/test-push.js && node scripts/test-push-flow.js && node scripts/test-telegram.js",
+    "push:keys": "node scripts/generate-vapid.js",
+    "telegram:webhook": "node --env-file-if-exists=.env.local scripts/setup-telegram-webhook.js",
     "train:model": "node --env-file-if-exists=.env.local scripts/train-risk-model.js",
     "start": "node local-server.js",
     "dev": "node --watch local-server.js",

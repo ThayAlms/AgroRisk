@@ -2,6 +2,7 @@ const {
   getConfig, listDangerZones, getLatestTelemetry, saveTelemetry, addSafetyLog, setCommand, getLocation,
 } = require('../lib/db');
 const { enrichTelemetry } = require('../lib/risk');
+const { notifyOperators } = require('../lib/notify');
 const { json, method, deviceId, authorizedDevice } = require('../lib/http');
 
 module.exports = async (request, response) => {
@@ -32,6 +33,8 @@ module.exports = async (request, response) => {
     const buzzerActive = nextLevel === 'critical' || reading.geofence?.inside === false;
     const reason = nextLevel === 'critical' ? 'danger-zone' : reading.geofence?.inside === false ? 'geofence' : null;
     const [command] = await Promise.all([setCommand(id, buzzerActive, reason), saveTelemetry(id, reading)]);
-    json(response, 201, { accepted: true, telemetry: reading, command, log });
+    // O alerta no celular do operador nunca pode derrubar a ingestão de telemetria.
+    const push = await notifyOperators(id, reading).catch((error) => ({ sent: 0, skipped: error.message }));
+    json(response, 201, { accepted: true, telemetry: reading, command, log, push });
   } catch (error) { json(response, 500, { error: error.message }); }
 };

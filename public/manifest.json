@@ -1,0 +1,13 @@
+{
+  "name": "AgroRisk · Alertas de operação",
+  "short_name": "AgroRisk",
+  "description": "Alertas de risco operacional para o operador da colheitadeira",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#0b1320",
+  "theme_color": "#c8102e",
+  "icons": [
+    { "src": "/sompo-logo.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/sompo-logo.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
