@@ -1,6 +1,6 @@
 /* Gera os ícones do app (PWA + iOS) sem dependência externa.
    O logo institucional é uma faixa 4,6:1 e vira um borrão ilegível em 60 px na
-   tela do celular, então o ícone usa a cor da marca com o símbolo de alerta.
+   tela do celular, então o ícone usa o "A" da marca em branco sobre o vermelho oficial.
    Uso: node scripts/generate-icons.js */
 const fs = require('node:fs');
 const path = require('node:path');
@@ -60,64 +60,45 @@ function mix(from, to, amount) {
   return from.map((channel, index) => Math.round(channel + (to[index] - channel) * amount));
 }
 
-// Distância com sinal até um triângulo de cantos arredondados, em coordenadas 0..1.
-function triangleDistance(x, y, cx, cy, size) {
-  const points = [
-    [cx, cy - size * 0.62],
-    [cx - size * 0.58, cy + size * 0.42],
-    [cx + size * 0.58, cy + size * 0.42],
-  ];
-  let inside = true;
-  let nearest = Infinity;
-  for (let i = 0; i < 3; i += 1) {
-    const [ax, ay] = points[i];
-    const [bx, by] = points[(i + 1) % 3];
-    const edgeX = bx - ax;
-    const edgeY = by - ay;
-    const toPointX = x - ax;
-    const toPointY = y - ay;
-    const cross = edgeX * toPointY - edgeY * toPointX;
-    if (cross > 0) inside = false;
-    const t = Math.max(0, Math.min(1, (toPointX * edgeX + toPointY * edgeY) / (edgeX * edgeX + edgeY * edgeY)));
-    nearest = Math.min(nearest, Math.hypot(toPointX - t * edgeX, toPointY - t * edgeY));
-  }
-  return inside ? -nearest : nearest;
+// Distância com sinal até um segmento de reta engrossado (traço de caneta).
+function strokeDistance(x, y, ax, ay, bx, by, radius) {
+  const edgeX = bx - ax;
+  const edgeY = by - ay;
+  const t = Math.max(0, Math.min(1, ((x - ax) * edgeX + (y - ay) * edgeY) / (edgeX * edgeX + edgeY * edgeY)));
+  return Math.hypot(x - ax - t * edgeX, y - ay - t * edgeY) - radius;
 }
 
-function roundedBarDistance(x, y, cx, cy, halfHeight, radius) {
-  const dx = Math.abs(x - cx);
-  const dy = Math.max(0, Math.abs(y - cy) - halfHeight);
-  return Math.hypot(dx, dy) - radius;
+// O "A" da marca, desenhado com três traços: as duas pernas e a travessa.
+// O vão triangular entre as pernas aparece sozinho, sem precisar recortar nada.
+function letterDistance(x, y) {
+  const apexX = 0.5;
+  const apexY = 0.17;
+  const baseY = 0.84;
+  const stroke = 0.093;
+  const left = strokeDistance(x, y, apexX, apexY, 0.185, baseY, stroke);
+  const right = strokeDistance(x, y, apexX, apexY, 0.815, baseY, stroke);
+  const bar = strokeDistance(x, y, 0.305, 0.625, 0.695, 0.625, stroke * 0.88);
+  return Math.min(left, right, bar);
 }
 
 // Amostra um pixel do ícone; coordenadas normalizadas 0..1.
-function sample(x, y, { margin }) {
+function sample(x, y, { margin, inverted }) {
   const scale = 1 - margin * 2;
   const u = (x - margin) / scale;
   const v = (y - margin) / scale;
 
-  // Fora da safe area (ícone maskable): o fundo continua, só o desenho encolhe.
-  const background = mix(BRAND, BRAND_DARK, Math.max(0, Math.min(1, (x * 0.35 + y * 0.9))));
-  let color = background;
-  let alpha = 1;
+  const background = inverted
+    ? mix(BRAND, BRAND_DARK, Math.max(0, Math.min(1, x * 0.35 + y * 0.9)))
+    : [255, 255, 255];
+  const foreground = inverted ? WHITE : BRAND;
 
-  const triangle = triangleDistance(u, v, 0.5, 0.53, 0.72);
-  const triangleEdge = 0.052; // espessura da borda arredondada
-  const triangleCoverage = Math.max(0, Math.min(1, (triangleEdge - triangle) / 0.012));
-  if (triangleCoverage > 0) color = mix(color, WHITE, triangleCoverage);
-
-  const bar = roundedBarDistance(u, v, 0.5, 0.47, 0.115, 0.052);
-  const dot = Math.hypot(u - 0.5, v - 0.71) - 0.062;
-  const markCoverage = Math.max(
-    Math.max(0, Math.min(1, -bar / 0.012)),
-    Math.max(0, Math.min(1, -dot / 0.012)),
-  );
-  if (markCoverage > 0) color = mix(color, background, markCoverage);
-
-  return [...color, Math.round(alpha * 255)];
+  const distance = letterDistance(u, v);
+  const coverage = Math.max(0, Math.min(1, -distance / 0.010));
+  const color = coverage > 0 ? mix(background, foreground, coverage) : background;
+  return [...color, 255];
 }
 
-function render(size, { margin = 0 } = {}) {
+function render(size, { margin = 0, inverted = false } = {}) {
   const rgba = Buffer.alloc(size * size * 4);
   const samples = 4; // supersampling: bordas suaves sem biblioteca gráfica
   for (let py = 0; py < size; py += 1) {
@@ -125,7 +106,7 @@ function render(size, { margin = 0 } = {}) {
       const accumulator = [0, 0, 0, 0];
       for (let sy = 0; sy < samples; sy += 1) {
         for (let sx = 0; sx < samples; sx += 1) {
-          const pixel = sample((px + (sx + 0.5) / samples) / size, (py + (sy + 0.5) / samples) / size, { margin });
+          const pixel = sample((px + (sx + 0.5) / samples) / size, (py + (sy + 0.5) / samples) / size, { margin, inverted });
           for (let i = 0; i < 4; i += 1) accumulator[i] += pixel[i];
         }
       }
@@ -136,16 +117,18 @@ function render(size, { margin = 0 } = {}) {
   return encodePng(size, size, rgba);
 }
 
+// O "A" branco sobre o vermelho da marca, em todos os tamanhos.
 const TARGETS = [
-  { file: 'icon-180.png', size: 180, margin: 0 },      // apple-touch-icon
-  { file: 'icon-192.png', size: 192, margin: 0 },
-  { file: 'icon-512.png', size: 512, margin: 0 },
-  { file: 'icon-maskable-512.png', size: 512, margin: 0.14 }, // safe area do Android
+  { file: 'icon-180.png', size: 180, margin: 0.12, inverted: true },          // apple-touch-icon
+  { file: 'icon-192.png', size: 192, margin: 0.12, inverted: true },
+  { file: 'icon-512.png', size: 512, margin: 0.12, inverted: true },
+  { file: 'icon-maskable-512.png', size: 512, margin: 0.24, inverted: true }, // safe area do Android
+  { file: 'icon-notification-192.png', size: 192, margin: 0.12, inverted: true },
 ];
 
 fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 for (const target of TARGETS) {
-  const png = render(target.size, { margin: target.margin });
+  const png = render(target.size, { margin: target.margin, inverted: target.inverted });
   fs.writeFileSync(path.join(OUTPUT_DIR, target.file), png);
   console.log(`${target.file.padEnd(24)} ${target.size}x${target.size}  ${(png.length / 1024).toFixed(1)} KB`);
 }
