@@ -24,6 +24,9 @@
     .agro-alerts__status { margin: 10px 0 0; font-size: 12px; line-height: 1.45; color: #16202f; }
     .agro-alerts__status:empty { display: none; }
     @media (max-width: 640px) { .agro-alerts { right: 12px; left: 12px; bottom: 12px; align-items: stretch; } .agro-alerts__toggle { justify-content: center; } }
+    /* O cartão de conta do auth-guard ocupa o mesmo canto: subimos para não cobrir o botão SAIR. */
+    body:has(.auth-account) .agro-alerts { bottom: 82px; }
+    @media (max-width: 640px) { body:has(.auth-account) .agro-alerts { bottom: 80px; } }
   `;
 
   const state = { open: false, push: false, telegram: null };
@@ -222,8 +225,20 @@
     }
   }
 
+  // Reserva para navegador sem suporte a :has() — mede o cartão de conta e afasta o painel.
+  function afastarDoCartaoDeConta(ui) {
+    if (CSS.supports?.('selector(body:has(a))')) return;
+    const ajustar = () => {
+      const conta = document.querySelector('.auth-account');
+      ui.root.style.bottom = conta ? `${Math.round(conta.getBoundingClientRect().height) + 28}px` : '';
+    };
+    ajustar();
+    setTimeout(ajustar, 1200);
+  }
+
   async function start() {
     const ui = build();
+    afastarDoCartaoDeConta(ui);
 
     ui.toggle.addEventListener('click', async () => {
       state.open = !state.open;
